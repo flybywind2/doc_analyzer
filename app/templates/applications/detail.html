@@ -21,6 +21,8 @@
 <script>
 const applicationId = {{ application_id }};
 let currentApplication = null;
+let allEvaluations = [];
+let currentUserEvaluation = null;
 
 // 애플리케이션 데이터 로드
 async function loadApplicationDetail() {
@@ -40,6 +42,9 @@ async function loadApplicationDetail() {
         
         const app = await response.json();
         currentApplication = app; // 전역 변수에 저장
+        
+        // 평가 목록 로드
+        await loadEvaluations();
         
         // AI 카테고리 파싱
         let aiCategories = [];
@@ -202,32 +207,13 @@ async function loadApplicationDetail() {
                     <h3 style="margin: 0;">심사위원 평가</h3>
                     ${(user.role === 'admin' || (app.department_id && user.department_id === app.department_id)) ? `
                         <button onclick="showEvaluationForm()" class="btn btn-primary">
-                            ${app.user_grade ? '평가 수정' : '평가하기'}
+                            ${currentUserEvaluation ? '내 평가 수정' : '평가하기'}
                         </button>
                     ` : ''}
                 </div>
-                ${app.user_grade ? `
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>등급</label>
-                            <div><span class="badge badge-grade-${app.user_grade}">${app.user_grade}</span></div>
-                        </div>
-                        <div class="detail-item">
-                            <label>평가자</label>
-                            <div>${app.evaluator_name || '-'}</div>
-                        </div>
-                        <div class="detail-item">
-                            <label>평가 일시</label>
-                            <div>${app.user_evaluated_at ? new Date(app.user_evaluated_at).toLocaleString('ko-KR') : '-'}</div>
-                        </div>
-                        <div class="detail-item full-width">
-                            <label>코멘트</label>
-                            <div class="text-content">${app.user_comment || '-'}</div>
-                        </div>
-                    </div>
-                ` : `
-                    <p class="text-muted">아직 평가되지 않았습니다.</p>
-                `}
+                <div id="evaluations-list">
+                    <p class="text-muted">평가를 불러오는 중...</p>
+                </div>
             </div>
             
             <!-- 평가 폼 (숨김) -->
@@ -278,15 +264,93 @@ function getStatusText(status) {
     return statusMap[status] || status;
 }
 
+async function loadEvaluations() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${applicationId}/evaluations`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load evaluations');
+        }
+        
+        allEvaluations = await response.json();
+        
+        // 현재 사용자의 평가 찾기
+        currentUserEvaluation = allEvaluations.find(e => e.is_current_user);
+        
+        renderEvaluations();
+    } catch (error) {
+        console.error('Error loading evaluations:', error);
+        document.getElementById('evaluations-list').innerHTML = 
+            '<p class="text-danger">평가 목록을 불러오는데 실패했습니다.</p>';
+    }
+}
+
+function renderEvaluations() {
+    const container = document.getElementById('evaluations-list');
+    
+    if (allEvaluations.length === 0) {
+        container.innerHTML = '<p class="text-muted">아직 평가가 없습니다.</p>';
+        return;
+    }
+    
+    let html = '<div class="evaluations-grid">';
+    
+    allEvaluations.forEach((evaluation, index) => {
+        const isCurrentUser = evaluation.is_current_user;
+        html += `
+            <div class="evaluation-card ${isCurrentUser ? 'current-user-evaluation' : ''}">
+                <div class="evaluation-header">
+                    <div>
+                        <span class="badge badge-grade-${evaluation.grade}">${evaluation.grade}</span>
+                        <strong style="margin-left: 0.5rem;">${evaluation.evaluator_name}</strong>
+                        ${isCurrentUser ? '<span class="badge badge-info" style="margin-left: 0.5rem;">내 평가</span>' : ''}
+                    </div>
+                    <small class="text-muted">${new Date(evaluation.created_at).toLocaleString('ko-KR')}</small>
+                </div>
+                <div class="evaluation-content">
+                    <p class="text-content">${evaluation.comment || '-'}</p>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    // 평가 통계 추가 (관리자만)
+    if (user.role === 'admin' && allEvaluations.length > 1) {
+        const gradeCount = {};
+        allEvaluations.forEach(e => {
+            gradeCount[e.grade] = (gradeCount[e.grade] || 0) + 1;
+        });
+        
+        html += '<div class="evaluation-summary">';
+        html += '<h4>평가 요약</h4>';
+        html += '<div class="grade-distribution">';
+        Object.entries(gradeCount).sort().forEach(([grade, count]) => {
+            html += `<span class="badge badge-grade-${grade}" style="margin-right: 0.5rem;">${grade}: ${count}명</span>`;
+        });
+        html += '</div>';
+        html += `<p class="text-muted" style="margin-top: 0.5rem;">총 ${allEvaluations.length}명이 평가했습니다.</p>`;
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+}
+
 function showEvaluationForm() {
     const form = document.getElementById('evaluation-form');
     const title = document.getElementById('evaluation-form-title');
     
-    // 현재 애플리케이션 데이터가 있으면 폼에 채우기
-    if (currentApplication && currentApplication.user_grade) {
-        title.textContent = '평가 수정';
-        document.getElementById('grade').value = currentApplication.user_grade;
-        document.getElementById('comment').value = currentApplication.user_comment || '';
+    // 현재 사용자의 평가가 있으면 폼에 채우기
+    if (currentUserEvaluation) {
+        title.textContent = '내 평가 수정';
+        document.getElementById('grade').value = currentUserEvaluation.grade;
+        document.getElementById('comment').value = currentUserEvaluation.comment || '';
     } else {
         title.textContent = '평가 작성';
         document.getElementById('grade').value = '';
@@ -324,13 +388,13 @@ async function submitEvaluation(event) {
         });
         
         if (response.ok) {
-            const isUpdate = currentApplication && currentApplication.user_grade;
+            const isUpdate = currentUserEvaluation !== null;
             alert(isUpdate ? '평가가 수정되었습니다.' : '평가가 제출되었습니다.');
             hideEvaluationForm();
-            await loadApplicationDetail(); // 데이터 다시 로드
+            await loadEvaluations(); // 평가 목록 다시 로드
         } else {
             const error = await response.json();
-            alert(`평가 ${currentApplication?.user_grade ? '수정' : '제출'} 실패: ${error.detail}`);
+            alert(`평가 ${currentUserEvaluation ? '수정' : '제출'} 실패: ${error.detail}`);
         }
     } catch (error) {
         console.error('Error submitting evaluation:', error);
@@ -502,6 +566,66 @@ loadApplicationDetail();
 .text-content {
     white-space: pre-wrap;
     line-height: 1.6;
+}
+
+.evaluations-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.evaluation-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #f9fafb;
+}
+
+.evaluation-card.current-user-evaluation {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.evaluation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.evaluation-content p {
+    margin: 0;
+    color: #374151;
+}
+
+.evaluation-summary {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.evaluation-summary h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #374151;
+}
+
+.grade-distribution {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.badge-info {
+    background: #3b82f6;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
 }
 </style>
 {% endblock %}

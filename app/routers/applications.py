@@ -131,7 +131,8 @@ async def submit_user_evaluation(
     db: Session = Depends(get_db)
 ):
     """
-    Submit user evaluation for application
+    Submit or update user evaluation for application
+    Each user can have their own evaluation
     """
     app = db.query(Application).filter(Application.id == application_id).first()
     if not app:
@@ -148,24 +149,94 @@ async def submit_user_evaluation(
                 detail="No permission to evaluate this application"
             )
     
-    # Update application
+    # Check if user already evaluated this application
+    existing_history = db.query(EvaluationHistory).filter(
+        EvaluationHistory.application_id == app.id,
+        EvaluationHistory.evaluator_id == current_user.id,
+        EvaluationHistory.evaluator_type == "USER"
+    ).first()
+    
+    if existing_history:
+        # Update existing evaluation
+        existing_history.grade = evaluation.grade
+        existing_history.summary = evaluation.comment
+        existing_history.created_at = datetime.utcnow()
+        message = "Evaluation updated successfully"
+    else:
+        # Create new evaluation
+        history = EvaluationHistory(
+            application_id=app.id,
+            evaluator_id=current_user.id,
+            evaluator_type="USER",
+            grade=evaluation.grade,
+            summary=evaluation.comment,
+            evaluation_detail=None,
+            ai_categories=app.ai_categories
+        )
+        db.add(history)
+        message = "Evaluation submitted successfully"
+    
+    # Update application status if at least one user evaluated
+    app.status = "user_evaluated"
+    
+    # Update application's latest evaluation info (for backward compatibility)
     app.user_grade = evaluation.grade
     app.user_comment = evaluation.comment
     app.user_evaluated_by = current_user.id
     app.user_evaluated_at = datetime.utcnow()
-    app.status = "user_evaluated"
     
-    # Save evaluation history
-    history = EvaluationHistory(
-        application_id=app.id,
-        evaluator_id=current_user.id,
-        evaluator_type="USER",
-        grade=evaluation.grade,
-        summary=evaluation.comment,
-        evaluation_detail=None,
-        ai_categories=app.ai_categories
-    )
-    db.add(history)
+    db.commit()
+    
+    return {"message": message}
+
+
+@router.get("/{application_id}/evaluations")
+async def get_application_evaluations(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all user evaluations for an application
+    Admins can see all evaluations
+    Reviewers can only see evaluations from their department
+    """
+    app = db.query(Application).filter(Application.id == application_id).first()
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found"
+        )
+    
+    # Check permission
+    if current_user.role != "admin":
+        if not current_user.department_id or app.department_id != current_user.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No permission to view this application"
+            )
+    
+    # Get all user evaluations
+    evaluations = db.query(EvaluationHistory).filter(
+        EvaluationHistory.application_id == application_id,
+        EvaluationHistory.evaluator_type == "USER"
+    ).order_by(EvaluationHistory.created_at.desc()).all()
+    
+    result = []
+    for evaluation in evaluations:
+        eval_data = {
+            "id": evaluation.id,
+            "grade": evaluation.grade,
+            "comment": evaluation.summary,
+            "evaluator_id": evaluation.evaluator_id,
+            "evaluator_name": evaluation.evaluator.name if evaluation.evaluator else None,
+            "evaluator_username": evaluation.evaluator.username if evaluation.evaluator else None,
+            "created_at": evaluation.created_at.isoformat() if evaluation.created_at else None,
+            "is_current_user": evaluation.evaluator_id == current_user.id
+        }
+        result.append(eval_data)
+    
+    return result
     
     db.commit()
     
