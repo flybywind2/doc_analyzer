@@ -2,8 +2,10 @@
 Authentication router
 """
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user import UserLogin, Token, PasswordChange, UserResponse
@@ -15,17 +17,27 @@ from app.config import settings
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+templates = Jinja2Templates(directory="app/templates")
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """
+    Login page
+    """
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 @router.post("/login", response_model=Token)
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
     """
     Login endpoint
     
-    Returns JWT access token
+    Returns JWT access token and sets it in cookie
     """
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -45,14 +57,28 @@ async def login(
         expires_delta=access_token_expires
     )
     
+    # Set cookie
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=False,  # Allow JavaScript to read it
+        max_age=settings.access_token_expire_minutes * 60,
+        samesite="lax"
+    )
+    
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(
+    response: Response,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Logout endpoint (token invalidation should be handled client-side)
+    Logout endpoint - clears cookie and localStorage
     """
+    # Clear cookie
+    response.delete_cookie(key="access_token")
     return {"message": "Logged out successfully"}
 
 
