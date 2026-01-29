@@ -93,3 +93,37 @@ async def admin_departments_page(
         "admin/departments.html",
         {"request": request, "user": current_user}
     )
+
+
+@router.get("/admin/categories", response_class=HTMLResponse)
+async def admin_categories_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin categories management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/categories.html",
+        {"request": request, "user": current_user}
+    )
+
+
+@router.get("/admin/sync", response_class=HTMLResponse)
+async def admin_sync_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin data sync page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/sync.html",
+        {"request": request, "user": current_user}
+    )

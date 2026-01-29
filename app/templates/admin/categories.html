@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}카테고리 관리 - AI 과제 지원서 평가 시스템{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>AI 카테고리 관리</h1>
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 새 카테고리 추가
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="loading" style="display: none;" class="text-center p-4">
+                <div class="spinner"></div>
+            </div>
+
+            <table class="table" id="categories-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>카테고리명</th>
+                        <th>설명</th>
+                        <th>활성화</th>
+                        <th>생성일</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="categories-tbody">
+                    <tr><td colspan="6" class="text-center">로딩 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="category-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">새 카테고리 추가</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="category-form" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="category-id">
+                
+                <div class="form-group">
+                    <label for="category-name">카테고리명 *</label>
+                    <input type="text" id="category-name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="category-description">설명</label>
+                    <textarea id="category-description" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="category-active" checked>
+                        활성화
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let categories = [];
+
+async function loadCategories() {
+    showLoading();
+    try {
+        const response = await apiFetch('/api/categories');
+        if (response.ok) {
+            categories = await response.json();
+            renderCategories();
+        } else {
+            showError('카테고리 목록을 불러오는데 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+        showError('카테고리 목록을 불러오는데 실패했습니다.');
+    } finally {
+        hideLoading();
+    }
+}
+
+function renderCategories() {
+    const tbody = document.getElementById('categories-tbody');
+    tbody.innerHTML = '';
+
+    if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">카테고리가 없습니다.</td></tr>';
+        return;
+    }
+
+    categories.forEach(category => {
+        const row = `
+            <tr>
+                <td>${category.id}</td>
+                <td>${category.name}</td>
+                <td>${category.description || '-'}</td>
+                <td>${category.is_active ? '<span class="badge badge-success">활성</span>' : '<span class="badge badge-secondary">비활성</span>'}</td>
+                <td>${new Date(category.created_at).toLocaleDateString('ko-KR')}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editCategory(${category.id})">수정</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCategory(${category.id})">삭제</button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+
+function showCreateModal() {
+    document.getElementById('modal-title').textContent = '새 카테고리 추가';
+    document.getElementById('category-form').reset();
+    document.getElementById('category-id').value = '';
+    document.getElementById('category-active').checked = true;
+    document.getElementById('category-modal').style.display = 'flex';
+}
+
+function editCategory(id) {
+    const category = categories.find(c => c.id === id);
+    if (!category) return;
+
+    document.getElementById('modal-title').textContent = '카테고리 수정';
+    document.getElementById('category-id').value = category.id;
+    document.getElementById('category-name').value = category.name;
+    document.getElementById('category-description').value = category.description || '';
+    document.getElementById('category-active').checked = category.is_active;
+    document.getElementById('category-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('category-modal').style.display = 'none';
+    document.getElementById('category-form').reset();
+}
+
+async function handleSubmit(event) {
+    event.preventDefault();
+
+    const categoryId = document.getElementById('category-id').value;
+    const data = {
+        name: document.getElementById('category-name').value,
+        description: document.getElementById('category-description').value || null,
+        is_active: document.getElementById('category-active').checked
+    };
+
+    try {
+        let response;
+        if (categoryId) {
+            // Update
+            response = await apiFetch(`/api/categories/${categoryId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        } else {
+            // Create
+            response = await apiFetch('/api/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        }
+
+        if (response.ok) {
+            closeModal();
+            await loadCategories();
+            showSuccess(categoryId ? '카테고리가 수정되었습니다.' : '카테고리가 추가되었습니다.');
+        } else {
+            const error = await response.json();
+            showError(error.detail || '카테고리 저장에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error saving category:', error);
+        showError('카테고리 저장에 실패했습니다.');
+    }
+}
+
+async function deleteCategory(id) {
+    if (!confirm('이 카테고리를 삭제하시겠습니까?')) return;
+
+    try {
+        const response = await apiFetch(`/api/categories/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            await loadCategories();
+            showSuccess('카테고리가 삭제되었습니다.');
+        } else {
+            const error = await response.json();
+            showError(error.detail || '카테고리 삭제에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        showError('카테고리 삭제에 실패했습니다.');
+    }
+}
+
+// Load categories on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadCategories();
+});
+</script>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.close-btn:hover {
+    color: #334155;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.badge-success {
+    background-color: #10b981;
+}
+
+.badge-secondary {
+    background-color: #94a3b8;
+}
+</style>
+{% endblock %}

@@ -26,7 +26,7 @@
                 <div class="user-menu">
                     <span>{{ user.name }} ({{ user.role }})</span>
                     <a href="/auth/change-password">비밀번호 변경</a>
-                    <a href="/auth/logout" onclick="return confirm('로그아웃 하시겠습니까?')">로그아웃</a>
+                    <a href="#" onclick="logout(); return false;">로그아웃</a>
                 </div>
             </div>
         </div>
