@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, users, departments, categories, applications, evaluations, statistics
+from app.routers import auth, users, departments, categories, applications, evaluations, statistics, pages
 
 # Initialize database
 init_db()
@@ -37,6 +37,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(pages.router)
 app.include_router(users.router)
 app.include_router(departments.router)
 app.include_router(categories.router)
@@ -53,10 +54,13 @@ async def startup_event():
     # Initialize default data
     from app.database import SessionLocal
     from app.models.init_data import init_default_data
+    from app.models.generate_dummy_data import generate_dummy_data
     
     db = SessionLocal()
     try:
         init_default_data(db)
+        # Generate dummy data for testing
+        generate_dummy_data(db)
     finally:
         db.close()
 

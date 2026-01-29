@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}지원서 목록 - AI 과제 지원서 평가 시스템{% endblock %}
+
+{% block content %}
+<div class="applications-list">
+    <div class="page-header">
+        <h1>지원서 목록</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="exportToCSV()">CSV 내보내기</button>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="filters">
+                <div class="form-group">
+                    <label>검색</label>
+                    <input type="text" id="search" placeholder="과제명, 대표자명 검색..." class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label>AI 등급</label>
+                    <select id="ai-grade-filter" class="form-control">
+                        <option value="">전체</option>
+                        <option value="S">S</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>AI 카테고리</label>
+                    <select id="category-filter" class="form-control">
+                        <option value="">전체</option>
+                        <option value="LLM">LLM</option>
+                        <option value="RAG">RAG</option>
+                        <option value="ML">ML</option>
+                        <option value="DL">DL</option>
+                        <option value="AI Agent">AI Agent</option>
+                        <option value="데이터분석">데이터분석</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>상태</label>
+                    <select id="status-filter" class="form-control">
+                        <option value="">전체</option>
+                        <option value="pending">대기</option>
+                        <option value="ai_evaluated">AI 평가 완료</option>
+                        <option value="user_evaluated">심사 완료</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="applyFilters()" style="margin-top: 1.8rem;">검색</button>
+                    <button class="btn btn-secondary" onclick="resetFilters()" style="margin-top: 1.8rem;">초기화</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Applications Table -->
+    <div class="card">
+        <div class="card-body">
+            <div id="loading" style="display: none;" class="text-center p-4">
+                <div class="spinner"></div>
+            </div>
+            
+            <table class="table" id="applications-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>과제명</th>
+                        <th>사업부</th>
+                        <th>대표자</th>
+                        <th>AI 카테고리</th>
+                        <th>AI 등급</th>
+                        <th>사용자 등급</th>
+                        <th>상태</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="applications-tbody">
+                    <tr><td colspan="9" class="text-center">로딩 중...</td></tr>
+                </tbody>
+            </table>
+            
+            <!-- Pagination -->
+            <div class="pagination-container" id="pagination">
+                <!-- Pagination will be inserted here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 0;
+const pageSize = 20;
+
+async function loadApplications(skip = 0) {
+    showLoading();
+    
+    try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append('skip', skip);
+        params.append('limit', pageSize);
+        
+        const search = document.getElementById('search').value;
+        if (search) params.append('search', search);
+        
+        const aiGrade = document.getElementById('ai-grade-filter').value;
+        if (aiGrade) params.append('ai_grade', aiGrade);
+        
+        const category = document.getElementById('category-filter').value;
+        if (category) params.append('ai_category', category);
+        
+        const status = document.getElementById('status-filter').value;
+        if (status) params.append('status_filter', status);
+        
+        const response = await apiFetch(`/applications?${params.toString()}`);
+        
+        if (response.ok) {
+            const applications = await response.json();
+            renderApplications(applications);
+        } else {
+            showError('지원서 목록을 불러오는데 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error loading applications:', error);
+        showError('지원서 목록을 불러오는데 실패했습니다.');
+    } finally {
+        hideLoading();
+    }
+}
+
+function renderApplications(applications) {
+    const tbody = document.getElementById('applications-tbody');
+    tbody.innerHTML = '';
+    
+    if (applications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">지원서가 없습니다.</td></tr>';
+        return;
+    }
+    
+    applications.forEach(app => {
+        const statusText = {
+            'pending': '대기',
+            'ai_evaluated': 'AI 평가 완료',
+            'user_evaluated': '심사 완료'
+        }[app.status] || app.status;
+        
+        const row = `
+            <tr>
+                <td>${app.id}</td>
+                <td><a href="/applications/${app.id}" class="app-link">${app.subject || 'N/A'}</a></td>
+                <td>${app.department_name || 'N/A'}</td>
+                <td>${app.representative_name || 'N/A'}</td>
+                <td>${app.ai_category_primary || '-'}</td>
+                <td>${app.ai_grade ? `<span class="badge ${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : '-'}</td>
+                <td>${app.user_grade ? `<span class="badge ${getGradeBadgeClass(app.user_grade)}">${app.user_grade}</span>` : '-'}</td>
+                <td>${statusText}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="viewApplication(${app.id})">상세보기</button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+
+function viewApplication(id) {
+    window.location.href = `/applications/${id}`;
+}
+
+function applyFilters() {
+    currentPage = 0;
+    loadApplications(0);
+}
+
+function resetFilters() {
+    document.getElementById('search').value = '';
+    document.getElementById('ai-grade-filter').value = '';
+    document.getElementById('category-filter').value = '';
+    document.getElementById('status-filter').value = '';
+    currentPage = 0;
+    loadApplications(0);
+}
+
+function nextPage() {
+    currentPage++;
+    loadApplications(currentPage * pageSize);
+}
+
+function prevPage() {
+    if (currentPage > 0) {
+        currentPage--;
+        loadApplications(currentPage * pageSize);
+    }
+}
+
+// Load applications on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadApplications(0);
+});
+</script>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.app-link {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.app-link:hover {
+    text-decoration: underline;
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .filters {
+        grid-template-columns: 1fr;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - AI 과제 지원서 평가 시스템{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1 class="mb-4">대시보드</h1>
+    
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="card summary-card">
+            <h3>총 과제 수</h3>
+            <p class="stat-number" id="total-applications">-</p>
+        </div>
+        
+        <div class="card summary-card">
+            <h3>AI 평가 완료</h3>
+            <p class="stat-number" id="ai-evaluated">-</p>
+        </div>
+        
+        <div class="card summary-card">
+            <h3>심사 완료</h3>
+            <p class="stat-number" id="user-evaluated">-</p>
+        </div>
+        
+        <div class="card summary-card">
+            <h3>평균 AI 등급</h3>
+            <p class="stat-number" id="avg-grade">-</p>
+        </div>
+    </div>
+    
+    <!-- Charts Section -->
+    <div class="charts-section mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h2>사업부별 지원 현황</h2>
+            </div>
+            <div class="card-body">
+                <div id="department-chart">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>사업부</th>
+                                <th>지원 수</th>
+                                <th>참여율</th>
+                                <th>평균 등급</th>
+                            </tr>
+                        </thead>
+                        <tbody id="department-stats">
+                            <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h2>AI 기술 카테고리별 분포</h2>
+            </div>
+            <div class="card-body">
+                <div id="category-chart">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>카테고리</th>
+                                <th>과제 수</th>
+                                <th>비율</th>
+                                <th>평균 등급</th>
+                            </tr>
+                        </thead>
+                        <tbody id="category-stats">
+                            <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h2>AI 평가 등급 분포</h2>
+            </div>
+            <div class="card-body">
+                <div id="grade-distribution">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>등급</th>
+                                <th>과제 수</th>
+                                <th>비율</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grade-stats">
+                            <tr><td colspan="3" class="text-center">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="quick-actions mt-4">
+        <h2 class="mb-3">빠른 작업</h2>
+        <div class="action-buttons">
+            <a href="/applications" class="btn btn-primary">지원서 목록 보기</a>
+            <a href="/applications/export/csv" class="btn btn-secondary" onclick="exportToCSV(); return false;">CSV 내보내기</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load dashboard data
+async function loadDashboard() {
+    try {
+        // Load summary stats
+        const summaryResponse = await apiFetch('/statistics/summary');
+        if (summaryResponse.ok) {
+            const summary = await summaryResponse.json();
+            document.getElementById('total-applications').textContent = summary.total_applications;
+            document.getElementById('ai-evaluated').textContent = summary.ai_evaluated;
+            document.getElementById('user-evaluated').textContent = summary.user_evaluated;
+            document.getElementById('avg-grade').textContent = summary.avg_ai_grade;
+        }
+        
+        // Load department stats
+        const deptResponse = await apiFetch('/statistics/by-department');
+        if (deptResponse.ok) {
+            const deptStats = await deptResponse.json();
+            const tbody = document.getElementById('department-stats');
+            tbody.innerHTML = '';
+            
+            deptStats.forEach(dept => {
+                const row = `
+                    <tr>
+                        <td>${dept.department_name}</td>
+                        <td>${dept.application_count}</td>
+                        <td>${dept.participation_rate.toFixed(1)}%</td>
+                        <td><span class="badge ${getGradeBadgeClass(dept.avg_grade)}">${dept.avg_grade}</span></td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // Load category stats
+        const catResponse = await apiFetch('/statistics/by-category');
+        if (catResponse.ok) {
+            const catStats = await catResponse.json();
+            const tbody = document.getElementById('category-stats');
+            tbody.innerHTML = '';
+            
+            const total = catStats.reduce((sum, cat) => sum + cat.count, 0);
+            
+            catStats.forEach(cat => {
+                const percentage = total > 0 ? (cat.count / total * 100).toFixed(1) : 0;
+                const row = `
+                    <tr>
+                        <td>${cat.category}</td>
+                        <td>${cat.count}</td>
+                        <td>${percentage}%</td>
+                        <td><span class="badge ${getGradeBadgeClass(cat.avg_grade)}">${cat.avg_grade}</span></td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // Load grade distribution
+        const gradeResponse = await apiFetch('/statistics/grade-distribution');
+        if (gradeResponse.ok) {
+            const gradeData = await gradeResponse.json();
+            const tbody = document.getElementById('grade-stats');
+            tbody.innerHTML = '';
+            
+            const dist = gradeData.ai_grade_distribution;
+            const total = Object.values(dist).reduce((sum, val) => sum + val, 0);
+            
+            ['S', 'A', 'B', 'C', 'D'].forEach(grade => {
+                const count = dist[grade] || 0;
+                const percentage = total > 0 ? (count / total * 100).toFixed(1) : 0;
+                const row = `
+                    <tr>
+                        <td><span class="badge ${getGradeBadgeClass(grade)}">${grade}</span></td>
+                        <td>${count}</td>
+                        <td>${percentage}%</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        showError('대시보드 데이터를 불러오는데 실패했습니다.');
+    }
+}
+
+// Load dashboard on page load
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+
+<style>
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.summary-card h3 {
+    font-size: 1rem;
+    color: #7f8c8d;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin: 0;
+}
+
+.charts-section {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .summary-cards {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}
