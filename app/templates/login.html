@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - AI 과제 지원서 평가 시스템</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <h1>AI 과제 지원서 평가 시스템</h1>
+            <h2>로그인</h2>
+            
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="username">사용자 ID</label>
+                    <input type="text" id="username" name="username" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">로그인</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>기본 관리자 계정: admin / admin123!</p>
+                <p>최초 로그인 시 비밀번호 변경이 필요합니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.style.display = 'none';
+            
+            const formData = new FormData();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('password', document.getElementById('password').value);
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('access_token', data.access_token);
+                    
+                    // Check if first login
+                    const userResponse = await fetch('/auth/me', {
+                        headers: {
+                            'Authorization': `Bearer ${data.access_token}`
+                        }
+                    });
+                    
+                    if (userResponse.ok) {
+                        const userData = await userResponse.json();
+                        if (userData.is_first_login) {
+                            window.location.href = '/auth/change-password';
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
+                    }
+                } else {
+                    const error = await response.json();
+                    errorDiv.textContent = error.detail || '로그인에 실패했습니다.';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = '서버 오류가 발생했습니다.';
+                errorDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

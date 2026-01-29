@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI 과제 지원서 평가 시스템{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>AI 과제 지원서 평가 시스템</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="/dashboard">대시보드</a>
+                <a href="/applications">지원서 목록</a>
+                {% if user.role == 'admin' %}
+                <a href="/admin/users">사용자 관리</a>
+                <a href="/admin/departments">사업부 관리</a>
+                <a href="/admin/categories">카테고리 관리</a>
+                <a href="/admin/sync">데이터 동기화</a>
+                {% endif %}
+                <div class="user-menu">
+                    <span>{{ user.name }} ({{ user.role }})</span>
+                    <a href="/auth/change-password">비밀번호 변경</a>
+                    <a href="/auth/logout" onclick="return confirm('로그아웃 하시겠습니까?')">로그아웃</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AI Team. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
