@@ -43,9 +43,6 @@ async function loadApplicationDetail() {
         const app = await response.json();
         currentApplication = app; // 전역 변수에 저장
         
-        // 평가 목록 로드
-        await loadEvaluations();
-        
         // AI 카테고리 파싱
         let aiCategories = [];
         if (app.ai_categories) {
@@ -242,6 +239,9 @@ async function loadApplicationDetail() {
                 </form>
             </div>
         `;
+        
+        // HTML 렌더링 후 평가 목록 로드
+        await loadEvaluations();
         
     } catch (error) {
         console.error('Error loading application:', error);
