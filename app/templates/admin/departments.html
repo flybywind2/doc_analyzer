@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}사업부 관리{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>사업부 관리</h2>
+    <div class="actions">
+        <button onclick="showCreateForm()" class="btn btn-primary">사업부 추가</button>
+    </div>
+</div>
+
+<!-- 사업부 목록 -->
+<div class="card">
+    <table class="table" id="departments-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>사업부명</th>
+                <th>설명</th>
+                <th>지원서 수</th>
+                <th>작업</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="text-center">로딩 중...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 사업부 생성/수정 모달 -->
+<div id="dept-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">사업부 추가</h3>
+            <button onclick="closeModal()" class="close-btn">&times;</button>
+        </div>
+        <form id="dept-form" onsubmit="submitDepartment(event)">
+            <input type="hidden" id="dept-id">
+            <div class="form-group">
+                <label for="name">사업부명 *</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="description">설명</label>
+                <textarea id="description" rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">저장</button>
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">취소</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function loadDepartments() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/departments', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load departments');
+        
+        const departments = await response.json();
+        const tbody = document.querySelector('#departments-table tbody');
+        
+        if (departments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">사업부가 없습니다</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = departments.map(dept => `
+            <tr>
+                <td>${dept.id}</td>
+                <td>${dept.name}</td>
+                <td>${dept.description || '-'}</td>
+                <td>${dept.applications_count || 0}</td>
+                <td>
+                    <button onclick="editDepartment(${dept.id})" class="btn btn-sm btn-secondary">수정</button>
+                    <button onclick="deleteDepartment(${dept.id})" class="btn btn-sm btn-danger">삭제</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading departments:', error);
+        const tbody = document.querySelector('#departments-table tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">데이터를 불러오는데 실패했습니다</td></tr>';
+    }
+}
+
+function showCreateForm() {
+    document.getElementById('modal-title').textContent = '사업부 추가';
+    document.getElementById('dept-form').reset();
+    document.getElementById('dept-id').value = '';
+    document.getElementById('dept-modal').style.display = 'flex';
+}
+
+async function editDepartment(deptId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/departments/${deptId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load department');
+        
+        const dept = await response.json();
+        
+        document.getElementById('modal-title').textContent = '사업부 수정';
+        document.getElementById('dept-id').value = dept.id;
+        document.getElementById('name').value = dept.name;
+        document.getElementById('description').value = dept.description || '';
+        document.getElementById('dept-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading department:', error);
+        alert('사업부 정보를 불러오는데 실패했습니다');
+    }
+}
+
+async function submitDepartment(event) {
+    event.preventDefault();
+    
+    const deptId = document.getElementById('dept-id').value;
+    const data = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value || null
+    };
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const url = deptId ? `/api/departments/${deptId}` : '/api/departments';
+        const method = deptId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            alert(deptId ? '사업부가 수정되었습니다' : '사업부가 추가되었습니다');
+            closeModal();
+            loadDepartments();
+        } else {
+            const error = await response.json();
+            alert(`오류: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error submitting department:', error);
+        alert('오류가 발생했습니다');
+    }
+}
+
+async function deleteDepartment(deptId) {
+    if (!confirm('정말 이 사업부를 삭제하시겠습니까?')) return;
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/departments/${deptId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert('사업부가 삭제되었습니다');
+            loadDepartments();
+        } else {
+            const error = await response.json();
+            alert(`삭제 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error deleting department:', error);
+        alert('삭제 중 오류가 발생했습니다');
+    }
+}
+
+function closeModal() {
+    document.getElementById('dept-modal').style.display = 'none';
+}
+
+// 페이지 로드 시 실행
+loadDepartments();
+</script>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    padding: 0;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-content form {
+    padding: 20px;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+</style>
+{% endblock %}

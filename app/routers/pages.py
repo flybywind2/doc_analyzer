@@ -58,3 +58,38 @@ async def change_password_page(
         "change_password.html",
         {"request": request, "user": current_user}
     )
+
+
+# Admin pages
+@router.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin users management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/users.html",
+        {"request": request, "user": current_user}
+    )
+
+
+@router.get("/admin/departments", response_class=HTMLResponse)
+async def admin_departments_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin departments management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/departments.html",
+        {"request": request, "user": current_user}
+    )

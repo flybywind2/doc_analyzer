@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}사용자 관리{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>사용자 관리</h2>
+    <div class="actions">
+        <button onclick="showCreateForm()" class="btn btn-primary">사용자 추가</button>
+    </div>
+</div>
+
+<!-- 사용자 목록 -->
+<div class="card">
+    <table class="table" id="users-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>사용자명</th>
+                <th>이름</th>
+                <th>역할</th>
+                <th>사업부</th>
+                <th>상태</th>
+                <th>작업</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="7" class="text-center">로딩 중...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 사용자 생성/수정 모달 -->
+<div id="user-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">사용자 추가</h3>
+            <button onclick="closeModal()" class="close-btn">&times;</button>
+        </div>
+        <form id="user-form" onsubmit="submitUser(event)">
+            <input type="hidden" id="user-id">
+            <div class="form-group">
+                <label for="username">사용자명 *</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">비밀번호 *</label>
+                <input type="password" id="password">
+                <small class="text-muted">수정 시 비워두면 변경하지 않습니다</small>
+            </div>
+            <div class="form-group">
+                <label for="name">이름 *</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="role">역할 *</label>
+                <select id="role" required>
+                    <option value="reviewer">심사위원</option>
+                    <option value="admin">관리자</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="department_id">사업부</label>
+                <select id="department_id">
+                    <option value="">없음</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="is_active"> 활성화
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">저장</button>
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">취소</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let departments = [];
+
+async function loadDepartments() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/departments', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            departments = await response.json();
+            updateDepartmentSelect();
+        }
+    } catch (error) {
+        console.error('Error loading departments:', error);
+    }
+}
+
+function updateDepartmentSelect() {
+    const select = document.getElementById('department_id');
+    const currentValue = select.value;
+    
+    select.innerHTML = '<option value="">없음</option>';
+    departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept.id;
+        option.textContent = dept.name;
+        select.appendChild(option);
+    });
+    
+    if (currentValue) {
+        select.value = currentValue;
+    }
+}
+
+async function loadUsers() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load users');
+        
+        const users = await response.json();
+        const tbody = document.querySelector('#users-table tbody');
+        
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">사용자가 없습니다</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = users.map(user => `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td>${user.name}</td>
+                <td><span class="badge">${user.role === 'admin' ? '관리자' : '심사위원'}</span></td>
+                <td>${user.department_name || '-'}</td>
+                <td><span class="badge badge-${user.is_active ? 'success' : 'danger'}">${user.is_active ? '활성' : '비활성'}</span></td>
+                <td>
+                    <button onclick="editUser(${user.id})" class="btn btn-sm btn-secondary">수정</button>
+                    <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">삭제</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading users:', error);
+        const tbody = document.querySelector('#users-table tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">데이터를 불러오는데 실패했습니다</td></tr>';
+    }
+}
+
+function showCreateForm() {
+    document.getElementById('modal-title').textContent = '사용자 추가';
+    document.getElementById('user-form').reset();
+    document.getElementById('user-id').value = '';
+    document.getElementById('is_active').checked = true;
+    document.getElementById('password').required = true;
+    document.getElementById('user-modal').style.display = 'flex';
+}
+
+async function editUser(userId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/users/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load user');
+        
+        const user = await response.json();
+        
+        document.getElementById('modal-title').textContent = '사용자 수정';
+        document.getElementById('user-id').value = user.id;
+        document.getElementById('username').value = user.username;
+        document.getElementById('password').value = '';
+        document.getElementById('password').required = false;
+        document.getElementById('name').value = user.name;
+        document.getElementById('role').value = user.role;
+        document.getElementById('department_id').value = user.department_id || '';
+        document.getElementById('is_active').checked = user.is_active;
+        document.getElementById('user-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading user:', error);
+        alert('사용자 정보를 불러오는데 실패했습니다');
+    }
+}
+
+async function submitUser(event) {
+    event.preventDefault();
+    
+    const userId = document.getElementById('user-id').value;
+    const data = {
+        username: document.getElementById('username').value,
+        name: document.getElementById('name').value,
+        role: document.getElementById('role').value,
+        department_id: document.getElementById('department_id').value || null,
+        is_active: document.getElementById('is_active').checked
+    };
+    
+    const password = document.getElementById('password').value;
+    if (password) {
+        data.password = password;
+    }
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const url = userId ? `/api/users/${userId}` : '/api/users';
+        const method = userId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            alert(userId ? '사용자가 수정되었습니다' : '사용자가 추가되었습니다');
+            closeModal();
+            loadUsers();
+        } else {
+            const error = await response.json();
+            alert(`오류: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error submitting user:', error);
+        alert('오류가 발생했습니다');
+    }
+}
+
+async function deleteUser(userId) {
+    if (!confirm('정말 이 사용자를 삭제하시겠습니까?')) return;
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert('사용자가 삭제되었습니다');
+            loadUsers();
+        } else {
+            const error = await response.json();
+            alert(`삭제 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('삭제 중 오류가 발생했습니다');
+    }
+}
+
+function closeModal() {
+    document.getElementById('user-modal').style.display = 'none';
+}
+
+// 페이지 로드 시 실행
+loadDepartments();
+loadUsers();
+</script>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    padding: 0;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-content form {
+    padding: 20px;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.text-muted {
+    color: #666;
+    font-size: 12px;
+}
+
+.badge-success { background: #10b981; color: white; }
+.badge-danger { background: #ef4444; color: white; }
+</style>
+{% endblock %}
