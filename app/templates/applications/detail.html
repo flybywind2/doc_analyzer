@@ -333,7 +333,12 @@ async function deleteApplication() {
     }
 }
 
-const user = {{ user | tojson }};
+const user = {
+    id: {{ user.id }},
+    username: "{{ user.username }}",
+    name: "{{ user.name }}",
+    role: "{{ user.role }}"
+};
 
 // 페이지 로드 시 실행
 loadApplicationDetail();

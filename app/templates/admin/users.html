@@ -192,11 +192,12 @@ async function submitUser(event) {
     event.preventDefault();
     
     const userId = document.getElementById('user-id').value;
+    const departmentValue = document.getElementById('department_id').value;
     const data = {
         username: document.getElementById('username').value,
         name: document.getElementById('name').value,
         role: document.getElementById('role').value,
-        department_id: document.getElementById('department_id').value || null,
+        department_id: departmentValue && departmentValue !== '' ? parseInt(departmentValue) : null,
         is_active: document.getElementById('is_active').checked
     };
     

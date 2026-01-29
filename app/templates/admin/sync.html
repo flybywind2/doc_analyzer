@@ -16,8 +16,12 @@
             <form id="sync-form" onsubmit="handleSync(event)">
                 <div class="form-group">
                     <label for="batch-id">배치 ID</label>
-                    <input type="text" id="batch-id" class="form-control" placeholder="예: 2024-Q1">
-                    <small class="form-text">배치 ID를 지정하면 해당 배치의 데이터만 동기화합니다.</small>
+                    <input type="text" id="batch-id" class="form-control" placeholder="예: 2024-Q1, 2026-1차">
+                    <small class="form-text">
+                        배치 ID는 Confluence에서 가져올 지원서 그룹을 식별합니다. 
+                        (예: "2024-Q1", "2024-상반기", "2026-1차" 등)<br>
+                        비워두면 모든 지원서를 동기화합니다.
+                    </small>
                 </div>
 
                 <div class="form-group">
