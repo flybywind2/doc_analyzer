@@ -1,13 +1,16 @@
 """
 Initialize database with default data
 """
+import bcrypt
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 from app.models.user import User
 from app.models.category import AICategory
 from app.models.evaluation import EvaluationCriteria
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hash password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def init_default_data(db: Session):
@@ -18,7 +21,7 @@ def init_default_data(db: Session):
     if not admin_user:
         admin_user = User(
             username="admin",
-            password_hash=pwd_context.hash("admin123!"),
+            password_hash=hash_password("admin123!"),
             name="시스템 관리자",
             role="admin",
             is_active=True,

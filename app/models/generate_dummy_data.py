@@ -3,12 +3,17 @@ Generate dummy data for testing
 """
 from datetime import datetime, timedelta
 import random
+import bcrypt
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.department import Department
 from app.models.application import Application
 from app.models.evaluation import EvaluationHistory
-from app.services.auth import get_password_hash
+
+
+def hash_password(password: str) -> str:
+    """Hash password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def generate_dummy_data(db: Session):
@@ -51,7 +56,7 @@ def generate_dummy_data(db: Session):
         if not user:
             user = User(
                 username=username,
-                password_hash=get_password_hash("password123!"),
+                password_hash=hash_password("password123!"),
                 name=f"{dept.name} 심사위원",
                 role="reviewer",
                 department_id=dept.id,

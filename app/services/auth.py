@@ -3,31 +3,28 @@ Authentication service
 """
 from datetime import datetime, timedelta
 from typing import Optional
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import TokenData
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password"""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def get_password_hash(password: str) -> str:
     """Hash password"""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
@@ -108,6 +105,7 @@ def decode_token(token: str) -> TokenData:
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
@@ -115,7 +113,8 @@ async def get_current_user(
     Get current authenticated user
     
     Args:
-        token: JWT token from request
+        request: FastAPI request object
+        token: JWT token from Authorization header
         db: Database session
         
     Returns:
@@ -124,6 +123,18 @@ async def get_current_user(
     Raises:
         HTTPException: If user not found or inactive
     """
+    # Try to get token from Authorization header first
+    if not token:
+        # If not in header, try to get from cookie
+        token = request.cookies.get("access_token")
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token_data = decode_token(token)
     user = db.query(User).filter(User.username == token_data.username).first()
     if user is None:
