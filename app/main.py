@@ -36,14 +36,19 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 # Include routers
-app.include_router(auth.router)
+# Web page routers (no prefix)
 app.include_router(pages.router)
-app.include_router(users.router)
-app.include_router(departments.router)
-app.include_router(categories.router)
-app.include_router(applications.router)
-app.include_router(evaluations.router)
-app.include_router(statistics.router)
+
+# Auth router (special - no /api prefix for compatibility)
+app.include_router(auth.router)
+
+# API routers (with /api prefix)
+app.include_router(users.router, prefix="/api")
+app.include_router(departments.router, prefix="/api")
+app.include_router(categories.router, prefix="/api")
+app.include_router(applications.router, prefix="/api")
+app.include_router(evaluations.router, prefix="/api")
+app.include_router(statistics.router, prefix="/api")
 
 
 @app.on_event("startup")

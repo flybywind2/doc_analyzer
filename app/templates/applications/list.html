@@ -122,7 +122,7 @@ async function loadApplications(skip = 0) {
         const status = document.getElementById('status-filter').value;
         if (status) params.append('status_filter', status);
         
-        const response = await apiFetch(`/applications?${params.toString()}`);
+        const response = await apiFetch(`/api/applications?${params.toString()}`);
         
         if (response.ok) {
             const applications = await response.json();

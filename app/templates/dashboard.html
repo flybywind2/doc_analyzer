@@ -115,7 +115,7 @@
 async function loadDashboard() {
     try {
         // Load summary stats
-        const summaryResponse = await apiFetch('/statistics/summary');
+        const summaryResponse = await apiFetch('/api/statistics/summary');
         if (summaryResponse.ok) {
             const summary = await summaryResponse.json();
             document.getElementById('total-applications').textContent = summary.total_applications;
@@ -125,7 +125,7 @@ async function loadDashboard() {
         }
         
         // Load department stats
-        const deptResponse = await apiFetch('/statistics/by-department');
+        const deptResponse = await apiFetch('/api/statistics/by-department');
         if (deptResponse.ok) {
             const deptStats = await deptResponse.json();
             const tbody = document.getElementById('department-stats');
@@ -145,7 +145,7 @@ async function loadDashboard() {
         }
         
         // Load category stats
-        const catResponse = await apiFetch('/statistics/by-category');
+        const catResponse = await apiFetch('/api/statistics/by-category');
         if (catResponse.ok) {
             const catStats = await catResponse.json();
             const tbody = document.getElementById('category-stats');
@@ -168,7 +168,7 @@ async function loadDashboard() {
         }
         
         // Load grade distribution
-        const gradeResponse = await apiFetch('/statistics/grade-distribution');
+        const gradeResponse = await apiFetch('/api/statistics/grade-distribution');
         if (gradeResponse.ok) {
             const gradeData = await gradeResponse.json();
             const tbody = document.getElementById('grade-stats');
