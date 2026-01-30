@@ -43,12 +43,12 @@
         </div>
         <div class="modal-body">
             <div class="compare-instructions">
-                <p>📌 최대 3개의 지원서를 선택하여 비교할 수 있습니다.</p>
+                <p>📌 최대 5개의 지원서를 선택하여 비교할 수 있습니다.</p>
             </div>
             
             <!-- 지원서 선택 영역 -->
             <div class="selection-area">
-                <h3>지원서 선택 <span id="selection-count">(0/3)</span></h3>
+                <h3>지원서 선택 <span id="selection-count">(0/5)</span></h3>
                 <div id="applications-list" class="applications-grid">
                     <div class="text-center p-4">로딩 중...</div>
                 </div>
@@ -235,8 +235,8 @@ function toggleSelection(appId) {
     if (index > -1) {
         selectedApplications.splice(index, 1);
     } else {
-        if (selectedApplications.length >= 3) {
-            showError('최대 3개까지만 선택할 수 있습니다.');
+        if (selectedApplications.length >= 5) {
+            showError('최대 5개까지만 선택할 수 있습니다.');
             return;
         }
         selectedApplications.push(appId);
@@ -246,7 +246,7 @@ function toggleSelection(appId) {
 }
 
 function updateSelectionCount() {
-    document.getElementById('selection-count').textContent = `(${selectedApplications.length}/3)`;
+    document.getElementById('selection-count').textContent = `(${selectedApplications.length}/5)`;
     document.getElementById('compare-btn').disabled = selectedApplications.length < 2;
 }
 
@@ -492,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 .applications-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
 }
