@@ -108,25 +108,23 @@ class LLMEvaluator:
 - **챗봇 (Chatbot)**: 대화형 인터페이스, 자동 응답, Q&A 시스템 등
 - **Agent**: 자율적 의사결정, 복잡한 작업 자동화, 멀티스텝 프로세스 등
 
-### 2. Biz Impact (사업 영향도)
-{department_info} 조직 관점에서:
-- 업무 효율성 개선 정도
-- 비용 절감 또는 매출 증대 효과
-- 조직 전략과의 연계성
-- 정량적 효과 (가능한 경우)
+### 2. 왜 이 과제를 추천하는가?
+{department_info} 조직 관점에서 이 과제가 가치 있는 이유를 설명하세요:
+- 어떤 업무 문제를 해결하나요?
+- 조직에 어떤 긍정적 영향을 주나요?
+- 왜 지금 이 과제가 필요한가요?
+- 이 과제의 핵심 가치는 무엇인가요?
 
-### 3. Feasibility (실현 가능성)
-- 기술적 난이도와 현재 기술 수준
-- 필요한 데이터의 확보 가능성
-- 참여 인원의 역량과 과제 요구사항 부합도
-- 예상 개발 기간과 리소스
-- 잠재적 위험 요소와 대응 방안
+### 3. 실현 가능성은 어떤가요?
+실제로 구현할 수 있을지 현실적으로 평가하세요:
+- 기술적으로 가능한 과제인가요? (난이도: 상/중/하)
+- 필요한 데이터를 확보할 수 있나요?
+- 팀의 역량이 충분한가요?
+- 어떤 어려움이 예상되나요?
+- 언제쯤 완성할 수 있을까요?
 
-### 4. 전반적인 AI 요약
-심사위원이 한눈에 파악할 수 있도록:
-- 과제의 핵심 가치 (3-5줄)
-- 추천 이유 또는 고려사항
-- 심사 시 주목할 포인트
+### 4. 한줄 요약
+이 과제를 한 문장으로 요약하고 추천도를 제시하세요.
 """
         
         prompt = f"""{system_prompt}
@@ -141,49 +139,40 @@ class LLMEvaluator:
 {{
   "ai_technology_category": {{
     "category": "ML" 또는 "챗봇" 또는 "Agent",
-    "reason": "이 기술로 분류한 이유를 2-3문장으로 설명",
-    "confidence": 0.9  // 0.0 ~ 1.0 사이 확신도
+    "reason": "이 기술로 분류한 이유를 2-3문장으로 설명"
   }},
-  "biz_impact": {{
-    "score": 4.5,  // 1.0 ~ 5.0
-    "summary": "사업 영향도 요약 (3-5줄)",
-    "key_benefits": [
-      "핵심 이점 1",
-      "핵심 이점 2",
-      "핵심 이점 3"
-    ],
-    "strategic_alignment": "조직 전략과의 연계성 설명 (2-3줄)"
+  "why_recommend": {{
+    "problem_solving": "어떤 업무 문제를 해결하나요? (2-3문장)",
+    "positive_impact": "조직에 어떤 긍정적 영향을 주나요? (2-3문장)",
+    "urgency": "왜 지금 이 과제가 필요한가요? (1-2문장)",
+    "core_value": "이 과제의 핵심 가치는 무엇인가요? (2-3문장)"
   }},
-  "feasibility": {{
-    "score": 3.8,  // 1.0 ~ 5.0
-    "summary": "실현 가능성 요약 (3-5줄)",
-    "technical_difficulty": "상/중/하 중 하나와 이유",
-    "data_availability": "데이터 확보 가능성 평가",
-    "team_capability": "팀 역량 평가",
-    "risks": [
-      "위험 요소 1",
-      "위험 요소 2"
+  "feasibility_assessment": {{
+    "is_feasible": true,  // true or false
+    "technical_difficulty": "상" 또는 "중" 또는 "하",
+    "difficulty_reason": "난이도 판단 이유 (2-3문장)",
+    "data_availability": "필요한 데이터를 확보할 수 있나요? (2-3문장)",
+    "team_capability": "팀의 역량이 충분한가요? (2-3문장)",
+    "expected_challenges": [
+      "예상 어려움 1",
+      "예상 어려움 2"
     ],
-    "timeline_estimate": "예상 개발 기간 (예: 3-6개월)"
+    "timeline_estimate": "언제쯤 완성할 수 있을까요? (예: 3-6개월)"
   }},
-  "overall_summary": {{
-    "recommendation": "강력 추천 / 추천 / 조건부 추천 / 보류 중 하나",
-    "core_value": "과제의 핵심 가치 설명 (3-5줄)",
-    "review_points": [
-      "심사 시 주목할 포인트 1",
-      "심사 시 주목할 포인트 2",
-      "심사 시 주목할 포인트 3"
-    ],
-    "final_comment": "최종 한줄 평가"
+  "one_line_summary": {{
+    "summary": "이 과제를 한 문장으로 요약 (1문장, 핵심만)",
+    "recommendation": "강력 추천" 또는 "추천" 또는 "조건부 추천" 또는 "보류",
+    "recommendation_reason": "추천도를 선택한 이유 (1-2문장)"
   }}
 }}
 
 **중요사항:**
 1. 반드시 유효한 JSON 형식으로 응답하세요
 2. 모든 필드를 빠짐없이 채워주세요
-3. score는 반드시 숫자(float)로 작성하세요
+3. 점수(score)는 절대 포함하지 마세요 - 심사위원이 숫자에 영향받지 않도록
 4. {department_info} 조직의 특성을 반영하여 평가하세요
-5. 심사위원이 긍정적으로 평가할 수 있도록 강점을 부각하세요
+5. 간결하고 명확하게 작성하세요 - 심사위원이 빠르게 이해할 수 있도록
+6. 긍정적이고 건설적인 관점으로 작성하세요
 """
         return prompt
     
@@ -290,46 +279,42 @@ class LLMEvaluator:
             
             # Extract new format results
             ai_tech = result.get("ai_technology_category", {})
-            biz_impact = result.get("biz_impact", {})
-            feasibility = result.get("feasibility", {})
-            overall = result.get("overall_summary", {})
+            why_recommend = result.get("why_recommend", {})
+            feasibility = result.get("feasibility_assessment", {})
+            one_liner = result.get("one_line_summary", {})
             
             # Build AI categories for compatibility
             ai_categories = [{
                 "category": ai_tech.get("category", "Unknown"),
-                "confidence": ai_tech.get("confidence", 0.0),
                 "reason": ai_tech.get("reason", "")
             }]
             
-            # Build evaluation detail for new format
+            # Build evaluation detail for new format (NO SCORES)
             evaluation_detail = {
                 "ai_technology": ai_tech,
-                "biz_impact": biz_impact,
-                "feasibility": feasibility,
-                "overall_summary": overall,
-                "scores": {
-                    "Biz Impact": {
-                        "score": biz_impact.get("score", 3.0),
-                        "grade": self._score_to_grade(biz_impact.get("score", 3.0))
-                    },
-                    "Feasibility": {
-                        "score": feasibility.get("score", 3.0),
-                        "grade": self._score_to_grade(feasibility.get("score", 3.0))
-                    }
-                }
+                "why_recommend": why_recommend,
+                "feasibility_assessment": feasibility,
+                "one_line_summary": one_liner
             }
             
-            # Calculate overall grade from biz_impact and feasibility scores
-            avg_score = (biz_impact.get("score", 3.0) + feasibility.get("score", 3.0)) / 2
-            overall_grade = self._score_to_grade(avg_score)
+            # Map recommendation to grade (without showing numeric scores)
+            recommendation = one_liner.get("recommendation", "추천")
+            if recommendation == "강력 추천":
+                overall_grade = "S"
+            elif recommendation == "추천":
+                overall_grade = "A"
+            elif recommendation == "조건부 추천":
+                overall_grade = "B"
+            else:
+                overall_grade = "C"
             
             # Build summary
             summary_parts = []
-            summary_parts.append(f"**AI 기술 분류**: {ai_tech.get('category', 'Unknown')}")
-            summary_parts.append(f"\n**Biz Impact**: {biz_impact.get('summary', 'N/A')}")
-            summary_parts.append(f"\n**Feasibility**: {feasibility.get('summary', 'N/A')}")
-            summary_parts.append(f"\n**추천**: {overall.get('recommendation', 'N/A')}")
-            summary_parts.append(f"\n\n{overall.get('core_value', '')}")
+            summary_parts.append(f"**🤖 AI 기술**: {ai_tech.get('category', 'Unknown')}")
+            summary_parts.append(f"\n\n**💡 한줄 요약**: {one_liner.get('summary', 'N/A')}")
+            summary_parts.append(f"\n\n**✅ 추천도**: {recommendation}")
+            if one_liner.get('recommendation_reason'):
+                summary_parts.append(f"\n{one_liner.get('recommendation_reason')}")
             
             summary = "".join(summary_parts)
             
