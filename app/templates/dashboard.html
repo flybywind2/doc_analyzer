@@ -3,109 +3,158 @@
 {% block title %}대시보드 - AI 과제 지원서 평가 시스템{% endblock %}
 
 {% block content %}
-<div class="dashboard">
-    <h1 class="mb-4">대시보드</h1>
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">대시보드</h1>
+            <p class="text-gray-500 mt-1">평가 현황과 통계를 한눈에 확인하세요.</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/applications" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-list mr-2"></i> 지원서 목록
+            </a>
+            <a href="/applications/export/csv" onclick="exportToCSV(); return false;" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-file-csv mr-2 text-green-600"></i> CSV 내보내기
+            </a>
+        </div>
+    </div>
     
     <!-- Summary Cards -->
-    <div class="summary-cards">
-        <div class="card summary-card">
-            <h3>총 과제 수</h3>
-            <p class="stat-number" id="total-applications">-</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white overflow-hidden rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-100 rounded-lg p-3">
+                        <i class="fa-solid fa-file-lines text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">총 과제 수</h3>
+                        <p class="text-2xl font-bold text-gray-900 mt-1" id="total-applications">-</p>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div class="card summary-card">
-            <h3>AI 평가 완료</h3>
-            <p class="stat-number" id="ai-evaluated">-</p>
+        <div class="bg-white overflow-hidden rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-100 rounded-lg p-3">
+                        <i class="fa-solid fa-robot text-green-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">AI 평가 완료</h3>
+                        <p class="text-2xl font-bold text-gray-900 mt-1" id="ai-evaluated">-</p>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div class="card summary-card">
-            <h3>심사 완료</h3>
-            <p class="stat-number" id="user-evaluated">-</p>
+        <div class="bg-white overflow-hidden rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-100 rounded-lg p-3">
+                        <i class="fa-solid fa-user-check text-purple-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">심사 완료</h3>
+                        <p class="text-2xl font-bold text-gray-900 mt-1" id="user-evaluated">-</p>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div class="card summary-card">
-            <h3>평균 AI 등급</h3>
-            <p class="stat-number" id="avg-grade">-</p>
+        <div class="bg-white overflow-hidden rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
+                        <i class="fa-solid fa-star text-yellow-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">평균 AI 등급</h3>
+                        <p class="text-2xl font-bold text-gray-900 mt-1" id="avg-grade">-</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
     <!-- Charts Section -->
-    <div class="charts-section mt-4">
-        <div class="card">
-            <div class="card-header">
-                <h2>사업부별 지원 현황</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 사업부별 현황 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fa-solid fa-building text-gray-400 mr-2"></i>사업부별 지원 현황
+                </h2>
             </div>
-            <div class="card-body">
+            <div class="p-6 overflow-x-auto">
                 <div id="department-chart">
-                    <table class="table">
-                        <thead>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th>사업부</th>
-                                <th>지원 수</th>
-                                <th>참여율</th>
-                                <th>평균 등급</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원 수</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">참여율</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평균 등급</th>
                             </tr>
                         </thead>
-                        <tbody id="department-stats">
-                            <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                        <tbody id="department-stats" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">로딩 중...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
         
-        <div class="card mt-4">
-            <div class="card-header">
-                <h2>AI 기술 카테고리별 분포</h2>
+        <!-- 카테고리별 분포 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fa-solid fa-layer-group text-gray-400 mr-2"></i>AI 기술 카테고리별 분포
+                </h2>
             </div>
-            <div class="card-body">
+            <div class="p-6 overflow-x-auto">
                 <div id="category-chart">
-                    <table class="table">
-                        <thead>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th>카테고리</th>
-                                <th>과제 수</th>
-                                <th>비율</th>
-                                <th>평균 등급</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">과제 수</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비율</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평균 등급</th>
                             </tr>
                         </thead>
-                        <tbody id="category-stats">
-                            <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                        <tbody id="category-stats" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">로딩 중...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
         
-        <div class="card mt-4">
-            <div class="card-header">
-                <h2>AI 평가 등급 분포</h2>
+        <!-- 등급 분포 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fa-solid fa-chart-bar text-gray-400 mr-2"></i>AI 평가 등급 분포
+                </h2>
             </div>
-            <div class="card-body">
+            <div class="p-6 overflow-x-auto">
                 <div id="grade-distribution">
-                    <table class="table">
-                        <thead>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th>등급</th>
-                                <th>과제 수</th>
-                                <th>비율</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등급</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">과제 수</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">비율</th>
                             </tr>
                         </thead>
-                        <tbody id="grade-stats">
-                            <tr><td colspan="3" class="text-center">로딩 중...</td></tr>
+                        <tbody id="grade-stats" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="3" class="px-6 py-10 text-center text-gray-500">로딩 중...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Quick Actions -->
-    <div class="quick-actions mt-4">
-        <h2 class="mb-3">빠른 작업</h2>
-        <div class="action-buttons">
-            <a href="/applications" class="btn btn-primary">지원서 목록 보기</a>
-            <a href="/applications/export/csv" class="btn btn-secondary" onclick="exportToCSV(); return false;">CSV 내보내기</a>
         </div>
     </div>
 </div>
@@ -133,11 +182,18 @@ async function loadDashboard() {
             
             deptStats.forEach(dept => {
                 const row = `
-                    <tr>
-                        <td>${dept.department_name}</td>
-                        <td>${dept.application_count}</td>
-                        <td>${dept.participation_rate.toFixed(1)}%</td>
-                        <td><span class="badge ${getGradeBadgeClass(dept.avg_grade)}">${dept.avg_grade}</span></td>
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${dept.department_name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dept.application_count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex items-center">
+                                <span class="mr-2">${dept.participation_rate.toFixed(1)}%</span>
+                                <div class="w-full bg-gray-200 rounded-full h-1.5 max-w-[50px]">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${dept.participation_rate}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="${getGradeBadgeClass(dept.avg_grade)}">${dept.avg_grade}</span></td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
@@ -156,11 +212,11 @@ async function loadDashboard() {
             catStats.forEach(cat => {
                 const percentage = total > 0 ? (cat.count / total * 100).toFixed(1) : 0;
                 const row = `
-                    <tr>
-                        <td>${cat.category}</td>
-                        <td>${cat.count}</td>
-                        <td>${percentage}%</td>
-                        <td><span class="badge ${getGradeBadgeClass(cat.avg_grade)}">${cat.avg_grade}</span></td>
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${cat.category}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${cat.count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${percentage}%</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="${getGradeBadgeClass(cat.avg_grade)}">${cat.avg_grade}</span></td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
@@ -181,10 +237,17 @@ async function loadDashboard() {
                 const count = dist[grade] || 0;
                 const percentage = total > 0 ? (count / total * 100).toFixed(1) : 0;
                 const row = `
-                    <tr>
-                        <td><span class="badge ${getGradeBadgeClass(grade)}">${grade}</span></td>
-                        <td>${count}</td>
-                        <td>${percentage}%</td>
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="${getGradeBadgeClass(grade)}">${grade}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex items-center">
+                                <span class="mr-2 w-8">${percentage}%</span>
+                                <div class="w-full bg-gray-200 rounded-full h-1.5 max-w-[100px]">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
@@ -197,56 +260,17 @@ async function loadDashboard() {
     }
 }
 
+// Helper for grade badge classes (override or new)
+function getGradeBadgeClass(grade) {
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
+    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
+    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
 // Load dashboard on page load
 document.addEventListener('DOMContentLoaded', loadDashboard);
 </script>
-
-<style>
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.summary-card {
-    text-align: center;
-    padding: 2rem 1rem;
-}
-
-.summary-card h3 {
-    font-size: 1rem;
-    color: #7f8c8d;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-}
-
-.stat-number {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #667eea;
-    margin: 0;
-}
-
-.charts-section {
-    display: grid;
-    gap: 1.5rem;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-    .summary-cards {
-        grid-template-columns: 1fr 1fr;
-    }
-    
-    .stat-number {
-        font-size: 2rem;
-    }
-}
-</style>
 {% endblock %}

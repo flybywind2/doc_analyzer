@@ -4,48 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI 과제 지원서 평가 시스템{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans KR"', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .nav-link { @apply text-gray-600 hover:text-blue-600 font-medium transition duration-150 ease-in-out; }
+        .nav-link.active { @apply text-blue-600 font-bold; }
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
     {% if user %}
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <h1>AI 과제 지원서 평가 시스템</h1>
-            </div>
-            <div class="nav-menu">
-                <a href="/dashboard">대시보드</a>
-                <a href="/applications">지원서 목록</a>
-                {% if user.role == 'admin' %}
-                <a href="/admin/users">사용자 관리</a>
-                <a href="/admin/departments">사업부 관리</a>
-                <a href="/admin/categories">카테고리 관리</a>
-                <a href="/admin/sync">데이터 동기화</a>
-                {% endif %}
-                <div class="user-menu">
-                    <span>{{ user.name }} ({{ user.role }})</span>
-                    <a href="/auth/change-password">비밀번호 변경</a>
-                    <a href="#" onclick="logout(); return false;">로그아웃</a>
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/dashboard" class="flex-shrink-0 flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-blue-600 text-2xl"></i>
+                        <h1 class="font-bold text-xl text-gray-800">AI 평가 시스템</h1>
+                    </a>
+                    <div class="hidden md:ml-8 md:flex md:space-x-8">
+                        <a href="/dashboard" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500">
+                            대시보드
+                        </a>
+                        <a href="/applications" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500">
+                            지원서 목록
+                        </a>
+                        {% if user.role == 'admin' %}
+                        <div class="relative group py-5">
+                            <button class="nav-link inline-flex items-center gap-1">
+                                관리자 메뉴 <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </button>
+                            <div class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block border border-gray-100">
+                                <a href="/admin/users" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">사용자 관리</a>
+                                <a href="/admin/departments" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">사업부 관리</a>
+                                <a href="/admin/categories" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">카테고리 관리</a>
+                                <a href="/admin/sync" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">데이터 동기화</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm text-right hidden sm:block">
+                            <div class="font-medium text-gray-900">{{ user.name }}</div>
+                            <div class="text-xs text-gray-500">{{ user.role }}</div>
+                        </div>
+                        <div class="relative group py-5">
+                            <button class="flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
+                                <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block border border-gray-100">
+                                <a href="/auth/change-password" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fa-solid fa-key w-5"></i> 비밀번호 변경
+                                </a>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <a href="#" onclick="logout(); return false;" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i class="fa-solid fa-right-from-bracket w-5"></i> 로그아웃
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
     {% endif %}
 
-    <main class="main-content">
-        <div class="container">
-            {% block content %}{% endblock %}
-        </div>
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2026 AI Team. All rights reserved.</p>
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                &copy; 2026 AI Team. All rights reserved.
+            </p>
         </div>
     </footer>
 
     <script src="/static/js/main.js"></script>
+    <script>
+        // 현재 페이지 활성화 (간단한 스크립트 추가)
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('nav a').forEach(link => {
+                if(link.getAttribute('href') === currentPath) {
+                    link.classList.add('text-blue-600', 'border-blue-500');
+                    link.classList.remove('border-transparent');
+                }
+            });
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
