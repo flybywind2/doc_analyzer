@@ -3,31 +3,30 @@
 {% block title %}카테고리 관리 - AI 과제 지원서 평가 시스템{% endblock %}
 
 {% block content %}
-<div class="admin-page">
-    <div class="page-header">
-        <h1>AI 카테고리 관리</h1>
-        <button class="btn btn-primary" onclick="showCreateModal()">
-            <i class="fas fa-plus"></i> 새 카테고리 추가
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">AI 카테고리 관리</h2>
+            <p class="text-gray-500 mt-1">AI 기술 카테고리별로 과제를 분류하고 비교 분석합니다.</p>
+        </div>
+        <button onclick="showCreateModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <i class="fa-solid fa-plus mr-2"></i> 새 카테고리 추가
         </button>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div id="loading" style="display: none;" class="text-center p-4">
-                <div class="spinner"></div>
-            </div>
-
-            <table class="table" id="categories-table">
-                <thead>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200" id="categories-table">
+                <thead class="bg-gray-50">
                     <tr>
-                        <th>AI 카테고리</th>
-                        <th>지원서 수</th>
-                        <th>설명</th>
-                        <th>작업</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI 카테고리</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원서 수</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">설명</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
                     </tr>
                 </thead>
-                <tbody id="categories-tbody">
-                    <tr><td colspan="4" class="text-center">로딩 중...</td></tr>
+                <tbody id="categories-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -35,78 +34,123 @@
 </div>
 
 <!-- 지원서 비교 모달 -->
-<div id="compare-modal" class="modal" style="display: none;">
-    <div class="modal-content modal-large">
-        <div class="modal-header">
-            <h2 id="compare-modal-title">지원서 비교</h2>
-            <button class="close-btn" onclick="closeCompareModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="compare-instructions">
-                <p>📌 최대 5개의 지원서를 선택하여 비교할 수 있습니다.</p>
-            </div>
-            
-            <!-- 지원서 선택 영역 -->
-            <div class="selection-area">
-                <h3>지원서 선택 <span id="selection-count">(0/5)</span></h3>
-                <div id="applications-list" class="applications-grid">
-                    <div class="text-center p-4">로딩 중...</div>
+<div id="compare-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeCompareModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4 border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-900" id="compare-modal-title">지원서 비교</h2>
+                    <button onclick="closeCompareModal()" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <i class="fa-solid fa-times text-xl"></i>
+                    </button>
                 </div>
-            </div>
-            
-            <!-- 비교 버튼 -->
-            <div class="compare-actions">
-                <button class="btn btn-secondary" onclick="closeCompareModal()">취소</button>
-                <button id="compare-btn" class="btn btn-primary" onclick="showComparison()" disabled>
-                    선택한 지원서 비교하기
-                </button>
-            </div>
-            
-            <!-- 비교 결과 영역 -->
-            <div id="comparison-result" style="display: none;">
-                <div class="comparison-header">
-                    <h3>비교 결과</h3>
-                    <button class="btn btn-sm btn-secondary" onclick="resetComparison()">다시 선택</button>
+                
+                <div class="modal-body">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md compare-instructions">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-circle-info text-blue-500"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">최대 5개의 지원서를 선택하여 비교할 수 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 지원서 선택 영역 -->
+                    <div class="selection-area space-y-4">
+                        <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                            지원서 선택 <span id="selection-count" class="ml-2 text-blue-600 font-bold text-base">(0/5)</span>
+                        </h3>
+                        <div id="applications-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-1">
+                            <div class="col-span-full text-center py-10 text-gray-500">
+                                <i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 비교 버튼 -->
+                    <div class="compare-actions mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                        <button onclick="closeCompareModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            취소
+                        </button>
+                        <button id="compare-btn" onclick="showComparison()" disabled class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            선택한 지원서 비교하기
+                        </button>
+                    </div>
+                    
+                    <!-- 비교 결과 영역 -->
+                    <div id="comparison-result" class="hidden">
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">비교 결과</h3>
+                            <button onclick="resetComparison()" class="px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> 다시 선택
+                            </button>
+                        </div>
+                        <div id="comparison-content" class="overflow-x-auto pb-4"></div>
+                        
+                        <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100 comparison-actions-bottom">
+                            <button onclick="resetComparison()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fa-solid fa-rotate-left mr-2"></i> 다시 선택
+                            </button>
+                            <button onclick="printComparison()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fa-solid fa-print mr-2"></i> 인쇄
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div id="comparison-content"></div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Create/Edit Modal -->
-<div id="category-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="modal-title">새 카테고리 추가</h2>
-            <button class="close-btn" onclick="closeModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="category-form" onsubmit="handleSubmit(event)">
-                <input type="hidden" id="category-id">
-                
-                <div class="form-group">
-                    <label for="category-name">카테고리명 *</label>
-                    <input type="text" id="category-name" class="form-control" required>
+<div id="category-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fa-solid fa-tag text-blue-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">새 카테고리 추가</h3>
+                        <div class="mt-4">
+                            <form id="category-form" onsubmit="handleSubmit(event)">
+                                <input type="hidden" id="category-id">
+                                <div class="mb-4">
+                                    <label for="category-name" class="block text-sm font-medium text-gray-700 mb-1">카테고리명 *</label>
+                                    <input type="text" id="category-name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="category-description" class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                                    <textarea id="category-description" rows="3" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"></textarea>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="category-active" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                                        <label for="category-active" class="ml-2 block text-sm text-gray-900">
+                                            활성화
+                                        </label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="form-group">
-                    <label for="category-description">설명</label>
-                    <textarea id="category-description" class="form-control" rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="category-active" checked>
-                        활성화
-                    </label>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">취소</button>
-                    <button type="submit" class="btn btn-primary">저장</button>
-                </div>
-            </form>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="document.getElementById('category-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    저장
+                </button>
+                <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    취소
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -119,7 +163,9 @@ let selectedApplications = [];
 let currentCategory = '';
 
 async function loadCategories() {
-    showLoading();
+    const tbody = document.getElementById('categories-tbody');
+    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>';
+    
     try {
         // AI 카테고리별 지원서 수 로드
         const response = await apiFetch('/api/applications');
@@ -141,8 +187,6 @@ async function loadCategories() {
     } catch (error) {
         console.error('Error loading data:', error);
         showError('데이터를 불러오는데 실패했습니다.');
-    } finally {
-        hideLoading();
     }
 }
 
@@ -153,16 +197,19 @@ function renderCategories() {
     aiCategories.forEach(category => {
         const apps = categoryApplications[category] || [];
         const row = `
-            <tr>
-                <td>
-                    <span class="badge badge-category">${category}</span>
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        ${category}
+                    </span>
                 </td>
-                <td>${apps.length}개</td>
-                <td>${getCategoryDescription(category)}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary" onclick="openCompareModal('${category}')" 
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${apps.length}개</td>
+                <td class="px-6 py-4 text-sm text-gray-500">${getCategoryDescription(category)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                    <button class="inline-flex items-center text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                            onclick="openCompareModal('${category}')" 
                             ${apps.length < 2 ? 'disabled' : ''}>
-                        <i class="fas fa-balance-scale"></i> 지원서 비교
+                        <i class="fa-solid fa-scale-balanced mr-1.5"></i> 지원서 비교
                     </button>
                 </td>
             </tr>
@@ -187,13 +234,17 @@ function openCompareModal(category) {
     currentCategory = category;
     selectedApplications = [];
     document.getElementById('compare-modal-title').textContent = `${category} 카테고리 지원서 비교`;
-    document.getElementById('compare-modal').style.display = 'flex';
-    document.getElementById('comparison-result').style.display = 'none';
+    document.getElementById('compare-modal').classList.remove('hidden');
+    document.getElementById('comparison-result').classList.add('hidden');
+    document.querySelector('.selection-area').classList.remove('hidden');
+    document.querySelector('.compare-actions').classList.remove('hidden');
+    document.querySelector('.compare-instructions').classList.remove('hidden');
+    
     renderApplicationsList();
 }
 
 function closeCompareModal() {
-    document.getElementById('compare-modal').style.display = 'none';
+    document.getElementById('compare-modal').classList.add('hidden');
     selectedApplications = [];
     currentCategory = '';
 }
@@ -203,30 +254,42 @@ function renderApplicationsList() {
     const container = document.getElementById('applications-list');
     
     if (apps.length === 0) {
-        container.innerHTML = '<div class="text-center p-4">이 카테고리에 지원서가 없습니다.</div>';
+        container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">이 카테고리에 지원서가 없습니다.</div>';
         return;
     }
     
     container.innerHTML = apps.map(app => `
-        <div class="application-card ${selectedApplications.includes(app.id) ? 'selected' : ''}" 
+        <div class="relative rounded-lg border-2 p-4 cursor-pointer transition-all hover:shadow-md ${selectedApplications.includes(app.id) ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 bg-white hover:border-blue-300'}" 
              onclick="toggleSelection(${app.id})">
-            <div class="app-header">
-                <input type="checkbox" ${selectedApplications.includes(app.id) ? 'checked' : ''} 
-                       onclick="event.stopPropagation(); toggleSelection(${app.id})">
-                <span class="badge badge-grade-${app.ai_grade || 'B'}">${app.ai_grade || 'N/A'}</span>
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center h-5">
+                    <input type="checkbox" ${selectedApplications.includes(app.id) ? 'checked' : ''} 
+                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                           onclick="event.stopPropagation(); toggleSelection(${app.id})">
+                </div>
+                <span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span>
             </div>
-            <h4>${app.subject}</h4>
-            <div class="app-info">
-                <span><i class="fas fa-building"></i> ${app.division || 'N/A'}</span>
-                <span><i class="fas fa-users"></i> ${app.participant_count || 0}명</span>
+            <h4 class="text-sm font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">${app.subject}</h4>
+            <div class="flex flex-col gap-1 text-xs text-gray-500 mb-2">
+                <span class="flex items-center"><i class="fa-solid fa-building w-4 text-center mr-1"></i> ${app.division || 'N/A'}</span>
+                <span class="flex items-center"><i class="fa-solid fa-users w-4 text-center mr-1"></i> ${app.participant_count || 0}명</span>
             </div>
-            <div class="app-summary">
-                ${app.pain_point ? app.pain_point.substring(0, 100) + '...' : 'Pain Point 없음'}
+            <div class="text-xs text-gray-500 pt-2 border-t border-gray-100 line-clamp-2">
+                ${app.pain_point ? app.pain_point : 'Pain Point 없음'}
             </div>
         </div>
     `).join('');
     
     updateSelectionCount();
+}
+
+function getGradeBadgeClass(grade) {
+    const baseClasses = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
+    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
+    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
+    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
 }
 
 function toggleSelection(appId) {
@@ -236,7 +299,7 @@ function toggleSelection(appId) {
         selectedApplications.splice(index, 1);
     } else {
         if (selectedApplications.length >= 5) {
-            showError('최대 5개까지만 선택할 수 있습니다.');
+            alert('최대 5개까지만 선택할 수 있습니다.');
             return;
         }
         selectedApplications.push(appId);
@@ -252,7 +315,7 @@ function updateSelectionCount() {
 
 async function showComparison() {
     if (selectedApplications.length < 2) {
-        showError('최소 2개의 지원서를 선택해주세요.');
+        alert('최소 2개의 지원서를 선택해주세요.');
         return;
     }
     
@@ -262,9 +325,10 @@ async function showComparison() {
     );
     
     // 비교 결과 표시
-    document.querySelector('.selection-area').style.display = 'none';
-    document.querySelector('.compare-actions').style.display = 'none';
-    document.getElementById('comparison-result').style.display = 'block';
+    document.querySelector('.selection-area').classList.add('hidden');
+    document.querySelector('.compare-actions').classList.add('hidden');
+    document.querySelector('.compare-instructions').classList.add('hidden');
+    document.getElementById('comparison-result').classList.remove('hidden');
     
     renderComparison(apps);
 }
@@ -273,93 +337,82 @@ function renderComparison(apps) {
     const container = document.getElementById('comparison-content');
     
     let html = `
-        <div class="comparison-table-wrapper">
-            <table class="comparison-table">
-                <thead>
-                    <tr>
-                        <th class="sticky-col">비교 항목</th>
-                        ${apps.map((app, idx) => `
-                            <th>지원서 ${idx + 1}</th>
-                        `).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- 기본 정보 -->
-                    <tr class="section-header">
-                        <td class="sticky-col" colspan="${apps.length + 1}">📋 기본 정보</td>
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">과제명</td>
-                        ${apps.map(app => `<td><strong>${app.subject}</strong></td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">사업부</td>
-                        ${apps.map(app => `<td>${app.division || '-'}</td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">부서</td>
-                        ${apps.map(app => `<td>${app.department_name || '-'}</td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">참여 인원</td>
-                        ${apps.map(app => `<td>${app.participant_count || 0}명</td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">AI 등급</td>
-                        ${apps.map(app => `<td><span class="badge badge-grade-${app.ai_grade || 'B'}">${app.ai_grade || 'N/A'}</span></td>`).join('')}
-                    </tr>
-                    
-                    <!-- 문제 및 해결방안 -->
-                    <tr class="section-header">
-                        <td class="sticky-col" colspan="${apps.length + 1}">🎯 문제 및 해결방안</td>
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">Pain Point</td>
-                        ${apps.map(app => `<td class="text-cell">${app.pain_point || '-'}</td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">개선 아이디어</td>
-                        ${apps.map(app => `<td class="text-cell">${app.improvement_idea || '-'}</td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">기대 효과</td>
-                        ${apps.map(app => `<td class="text-cell">${app.expected_effect || '-'}</td>`).join('')}
-                    </tr>
-                    
-                    <!-- AI 요약 -->
-                    <tr class="section-header">
-                        <td class="sticky-col" colspan="${apps.length + 1}">🤖 AI 요약</td>
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">AI 기술 분류</td>
-                        ${apps.map(app => `<td><span class="badge badge-category">${app.ai_category_primary || '분류'}</span></td>`).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">경영효과</td>
-                        ${apps.map(app => {
-                            const detail = app.ai_evaluation_detail || {};
-                            return `<td class="text-cell">${detail.business_impact || '-'}</td>`;
-                        }).join('')}
-                    </tr>
-                    <tr>
-                        <td class="sticky-col">구현 가능성</td>
-                        ${apps.map(app => {
-                            const detail = app.ai_evaluation_detail || {};
-                            return `<td class="text-cell">${detail.technical_feasibility || '-'}</td>`;
-                        }).join('')}
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="comparison-actions-bottom">
-            <button class="btn btn-secondary" onclick="resetComparison()">
-                <i class="fas fa-redo"></i> 다시 선택
-            </button>
-            <button class="btn btn-primary" onclick="printComparison()">
-                <i class="fas fa-print"></i> 인쇄
-            </button>
-        </div>
+        <table class="min-w-full border-collapse text-sm">
+            <thead>
+                <tr>
+                    <th class="p-4 text-left bg-gray-50 border border-gray-200 sticky left-0 z-10 font-bold text-gray-700 min-w-[150px]">비교 항목</th>
+                    ${apps.map((app, idx) => `
+                        <th class="p-4 text-left bg-gray-50 border border-gray-200 font-bold text-gray-700 min-w-[200px]">지원서 ${idx + 1}</th>
+                    `).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 기본 정보 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">📋 기본 정보</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">과제명</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white font-bold text-gray-900">${app.subject}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">사업부</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.division || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">부서</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.department_name || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">참여 인원</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.participant_count || 0}명</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 등급</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span></td>`).join('')}
+                </tr>
+                
+                <!-- 문제 및 해결방안 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🎯 문제 및 해결방안</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">Pain Point</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.pain_point || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">개선 아이디어</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.improvement_idea || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">기대 효과</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.expected_effect || '-'}</td>`).join('')}
+                </tr>
+                
+                <!-- AI 요약 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🤖 AI 요약</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 기술 분류</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${app.ai_category_primary || '분류'}</span></td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">경영효과</td>
+                    ${apps.map(app => {
+                        const detail = app.ai_evaluation_detail || {};
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.business_impact || '-'}</td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">구현 가능성</td>
+                    ${apps.map(app => {
+                        const detail = app.ai_evaluation_detail || {};
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.technical_feasibility || '-'}</td>`;
+                    }).join('')}
+                </tr>
+            </tbody>
+        </table>
     `;
     
     container.innerHTML = html;
@@ -367,14 +420,23 @@ function renderComparison(apps) {
 
 function resetComparison() {
     selectedApplications = [];
-    document.querySelector('.selection-area').style.display = 'block';
-    document.querySelector('.compare-actions').style.display = 'flex';
-    document.getElementById('comparison-result').style.display = 'none';
+    document.querySelector('.selection-area').classList.remove('hidden');
+    document.querySelector('.compare-actions').classList.remove('hidden');
+    document.querySelector('.compare-instructions').classList.remove('hidden');
+    document.getElementById('comparison-result').classList.add('hidden');
     renderApplicationsList();
 }
 
 function printComparison() {
     window.print();
+}
+
+function showCreateModal() {
+    document.getElementById('category-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('category-modal').classList.add('hidden');
 }
 
 // Load categories on page load
@@ -384,280 +446,55 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <style>
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    overflow-y: auto;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-    margin: 2rem auto;
-}
-
-.modal-large {
-    max-width: 1200px;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #64748b;
-}
-
-.close-btn:hover {
-    color: #334155;
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-    margin-top: 1.5rem;
-}
-
-.badge-category {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-/* 지원서 비교 스타일 */
-.compare-instructions {
-    background: #f0f9ff;
-    padding: 1rem;
-    border-left: 4px solid #3b82f6;
-    border-radius: 4px;
-    margin-bottom: 1.5rem;
-}
-
-.compare-instructions p {
-    margin: 0;
-    color: #1e40af;
-}
-
-.selection-area h3 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-#selection-count {
-    color: #667eea;
-    font-weight: 700;
-}
-
-.applications-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.application-card {
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: white;
-}
-
-.application-card:hover {
-    border-color: #667eea;
-    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.1);
-}
-
-.application-card.selected {
-    border-color: #667eea;
-    background: #f0f4ff;
-}
-
-.app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.app-header input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-}
-
-.application-card h4 {
-    margin: 0.75rem 0;
-    font-size: 1rem;
-    color: #1e293b;
-    line-height: 1.4;
-}
-
-.app-info {
-    display: flex;
-    gap: 1rem;
-    margin: 0.5rem 0;
-    font-size: 0.85rem;
-    color: #64748b;
-}
-
-.app-info i {
-    margin-right: 0.25rem;
-}
-
-.app-summary {
-    font-size: 0.85rem;
-    color: #64748b;
-    line-height: 1.5;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid #e5e7eb;
-}
-
-.compare-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e5e7eb;
-}
-
-.comparison-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e2e8f0;
-}
-
-.comparison-header h3 {
-    margin: 0;
-}
-
-.comparison-table-wrapper {
-    overflow-x: auto;
-    margin-bottom: 1.5rem;
-}
-
-.comparison-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-}
-
-.comparison-table th,
-.comparison-table td {
-    padding: 1rem;
-    text-align: left;
-    border: 1px solid #e2e8f0;
-}
-
-.comparison-table thead th {
-    background: #f8fafc;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.comparison-table .sticky-col {
-    position: sticky;
-    left: 0;
-    background: #f8fafc;
-    font-weight: 600;
-    z-index: 5;
-    min-width: 150px;
-}
-
-.comparison-table .section-header td {
-    background: #667eea;
-    color: white;
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.comparison-table .text-cell {
-    max-width: 300px;
-    white-space: pre-wrap;
-    line-height: 1.6;
-}
-
-.comparison-actions-bottom {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e2e8f0;
-}
-
 /* 인쇄 스타일 */
 @media print {
-    .modal-header,
-    .comparison-actions-bottom,
-    .compare-actions {
+    /* base.html의 nav, sidebar 등을 숨겨야 함. Tailwind에서는 hidden 클래스 사용 */
+    nav, .page-header, .comparison-actions-bottom, .compare-actions, footer {
         display: none !important;
     }
     
-    .modal {
+    /* 모달 배경과 위치 조정 */
+    #compare-modal {
+        position: static !important;
         background: white !important;
+        display: block !important;
+        overflow: visible !important;
     }
     
-    .modal-content {
-        box-shadow: none !important;
+    /* 모달 내부 컨텐츠 확장 */
+    .inline-block {
+        display: block !important;
+        width: 100% !important;
         max-width: 100% !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        transform: none !important;
     }
     
-    .comparison-table {
-        font-size: 0.75rem;
+    /* 스크롤 제거 */
+    .overflow-x-auto, .overflow-y-auto {
+        overflow: visible !important;
     }
     
-    .comparison-table th,
-    .comparison-table td {
-        padding: 0.5rem;
+    /* 폰트 크기 조정 */
+    body {
+        font-size: 10pt;
+    }
+    
+    /* 불필요한 요소 숨김 */
+    .close-btn, .modal-header button {
+        display: none !important;
+    }
+    
+    .bg-gray-50 {
+        background-color: #f9fafb !important;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .bg-blue-600 {
+        background-color: #2563eb !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
     }
 }
 </style>

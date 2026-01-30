@@ -3,95 +3,126 @@
 {% block title %}지원서 목록 - AI 과제 지원서 평가 시스템{% endblock %}
 
 {% block content %}
-<div class="applications-list">
-    <div class="page-header">
-        <h1>지원서 목록</h1>
-        <div class="header-actions">
-            <button class="btn btn-secondary" onclick="exportToCSV()">CSV 내보내기</button>
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">지원서 목록</h1>
+            <p class="text-gray-500 mt-1">접수된 AI 과제 지원서를 조회하고 관리합니다.</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportToCSV()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-file-csv mr-2 text-green-600"></i> CSV 내보내기
+            </button>
         </div>
     </div>
     
     <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="filters">
-                <div class="form-group">
-                    <label>검색</label>
-                    <input type="text" id="search" placeholder="과제명, 대표자명 검색..." class="form-control">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <i class="fa-solid fa-filter text-gray-400 mr-2"></i> 검색 필터
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="space-y-1">
+                <label for="search" class="block text-sm font-medium text-gray-700">검색어</label>
+                <div class="relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search" class="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border" placeholder="과제명, 대표자명...">
                 </div>
-                
-                <div class="form-group">
-                    <label>AI 등급</label>
-                    <select id="ai-grade-filter" class="form-control">
-                        <option value="">전체</option>
-                        <option value="S">S</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>AI 카테고리</label>
-                    <select id="category-filter" class="form-control">
-                        <option value="">전체</option>
-                        <option value="LLM">LLM</option>
-                        <option value="RAG">RAG</option>
-                        <option value="ML">ML</option>
-                        <option value="DL">DL</option>
-                        <option value="AI Agent">AI Agent</option>
-                        <option value="데이터분석">데이터분석</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>상태</label>
-                    <select id="status-filter" class="form-control">
-                        <option value="">전체</option>
-                        <option value="pending">대기</option>
-                        <option value="ai_evaluated">AI 평가 완료</option>
-                        <option value="user_evaluated">심사 완료</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <button class="btn btn-primary" onclick="applyFilters()" style="margin-top: 1.8rem;">검색</button>
-                    <button class="btn btn-secondary" onclick="resetFilters()" style="margin-top: 1.8rem;">초기화</button>
-                </div>
+            </div>
+            
+            <div class="space-y-1">
+                <label for="ai-grade-filter" class="block text-sm font-medium text-gray-700">AI 등급</label>
+                <select id="ai-grade-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+                    <option value="">전체</option>
+                    <option value="S">S</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+            
+            <div class="space-y-1">
+                <label for="category-filter" class="block text-sm font-medium text-gray-700">AI 카테고리</label>
+                <select id="category-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+                    <option value="">전체</option>
+                    <option value="LLM">LLM</option>
+                    <option value="RAG">RAG</option>
+                    <option value="ML">ML</option>
+                    <option value="DL">DL</option>
+                    <option value="AI Agent">AI Agent</option>
+                    <option value="데이터분석">데이터분석</option>
+                </select>
+            </div>
+            
+            <div class="space-y-1">
+                <label for="status-filter" class="block text-sm font-medium text-gray-700">상태</label>
+                <select id="status-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+                    <option value="">전체</option>
+                    <option value="pending">대기</option>
+                    <option value="ai_evaluated">AI 평가 완료</option>
+                    <option value="user_evaluated">심사 완료</option>
+                </select>
+            </div>
+            
+            <div class="flex items-end gap-2 pb-0.5">
+                <button onclick="applyFilters()" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    검색
+                </button>
+                <button onclick="resetFilters()" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    초기화
+                </button>
             </div>
         </div>
     </div>
     
     <!-- Applications Table -->
-    <div class="card">
-        <div class="card-body">
-            <div id="loading" style="display: none;" class="text-center p-4">
-                <div class="spinner"></div>
-            </div>
-            
-            <table class="table" id="applications-table">
-                <thead>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200" id="applications-table">
+                <thead class="bg-gray-50">
                     <tr>
-                        <th>ID</th>
-                        <th>과제명</th>
-                        <th>사업부</th>
-                        <th>대표자</th>
-                        <th>AI 카테고리</th>
-                        <th>AI 등급</th>
-                        <th>사용자 등급</th>
-                        <th>상태</th>
-                        <th>작업</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">과제명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대표자</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI 카테고리</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">AI 등급</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">사용자 등급</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
                     </tr>
                 </thead>
-                <tbody id="applications-tbody">
-                    <tr><td colspan="9" class="text-center">로딩 중...</td></tr>
+                <tbody id="applications-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr><td colspan="9" class="px-6 py-10 text-center text-gray-500">
+                        <i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...
+                    </td></tr>
                 </tbody>
             </table>
-            
-            <!-- Pagination -->
-            <div class="pagination-container" id="pagination">
-                <!-- Pagination will be inserted here -->
+        </div>
+        
+        <!-- Pagination -->
+        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6" id="pagination">
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        표시: <span class="font-medium" id="page-start">0</span> - <span class="font-medium" id="page-end">0</span> / 전체: <span class="font-medium" id="total-count">0</span>
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button onclick="prevPage()" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">이전</span>
+                            <i class="fa-solid fa-chevron-left h-5 w-5 p-1"></i>
+                        </button>
+                        <button onclick="nextPage()" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">다음</span>
+                            <i class="fa-solid fa-chevron-right h-5 w-5 p-1"></i>
+                        </button>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>
@@ -100,9 +131,29 @@
 <script>
 let currentPage = 0;
 const pageSize = 20;
+let totalItems = 0; // Added for pagination info
+
+// Helper for grade badge classes
+function getGradeBadgeClass(grade) {
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
+    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
+    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
+// Helper for status classes
+function getStatusClass(status) {
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    if (status === 'user_evaluated') return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (status === 'ai_evaluated') return `${baseClasses} bg-green-100 text-green-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
 
 async function loadApplications(skip = 0) {
-    showLoading();
+    const tbody = document.getElementById('applications-tbody');
+    tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>';
     
     try {
         // Build query parameters
@@ -127,15 +178,27 @@ async function loadApplications(skip = 0) {
         if (response.ok) {
             const applications = await response.json();
             renderApplications(applications);
+            // In a real app, you would get total count from header or wrapper
+            // For now, simple pagination logic
+            totalItems = applications.length; 
+            updatePaginationInfo(skip, applications.length);
+
         } else {
             showError('지원서 목록을 불러오는데 실패했습니다.');
+            tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-red-500">데이터 로드 실패</td></tr>';
         }
     } catch (error) {
         console.error('Error loading applications:', error);
         showError('지원서 목록을 불러오는데 실패했습니다.');
-    } finally {
-        hideLoading();
+        tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-red-500">오류가 발생했습니다</td></tr>';
     }
+}
+
+function updatePaginationInfo(skip, count) {
+    document.getElementById('page-start').textContent = count > 0 ? skip + 1 : 0;
+    document.getElementById('page-end').textContent = skip + count;
+    // Note: Total count is not returned by current API, so this is just placeholder
+    document.getElementById('total-count').textContent = count < pageSize ? skip + count : '20+'; 
 }
 
 function renderApplications(applications) {
@@ -143,7 +206,7 @@ function renderApplications(applications) {
     tbody.innerHTML = '';
     
     if (applications.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center">지원서가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-gray-500">지원서가 없습니다.</td></tr>';
         return;
     }
     
@@ -155,17 +218,33 @@ function renderApplications(applications) {
         }[app.status] || app.status;
         
         const row = `
-            <tr>
-                <td>${app.id}</td>
-                <td><a href="/applications/${app.id}" class="app-link">${app.subject || 'N/A'}</a></td>
-                <td>${app.department_name || 'N/A'}</td>
-                <td>${app.representative_name || 'N/A'}</td>
-                <td>${app.ai_category_primary || '-'}</td>
-                <td>${app.ai_grade ? `<span class="badge ${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : '-'}</td>
-                <td>${app.user_grade ? `<span class="badge ${getGradeBadgeClass(app.user_grade)}">${app.user_grade}</span>` : '-'}</td>
-                <td>${statusText}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary" onclick="viewApplication(${app.id})">상세보기</button>
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#${app.id}</td>
+                <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                    <a href="/applications/${app.id}" class="text-blue-600 hover:text-blue-900 hover:underline block truncate max-w-xs" title="${app.subject}">
+                        ${app.subject || '제목 없음'}
+                    </a>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${app.department_name || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${app.representative_name || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        ${app.ai_category_primary || '-'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                    ${app.ai_grade ? `<span class="${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : '<span class="text-gray-400">-</span>'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                    ${app.user_grade ? `<span class="${getGradeBadgeClass(app.user_grade)}">${app.user_grade}</span>` : '<span class="text-gray-400">-</span>'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span class="${getStatusClass(app.status)}">${statusText}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                    <button class="text-blue-600 hover:text-blue-900 transition-colors" onclick="viewApplication(${app.id})">
+                        <i class="fa-solid fa-eye"></i> 상세보기
+                    </button>
                 </td>
             </tr>
         `;
@@ -192,6 +271,7 @@ function resetFilters() {
 }
 
 function nextPage() {
+    // In a real implementation, we would check if we have more pages
     currentPage++;
     loadApplications(currentPage * pageSize);
 }
@@ -208,53 +288,4 @@ document.addEventListener('DOMContentLoaded', () => {
     loadApplications(0);
 });
 </script>
-
-<style>
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-.filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    align-items: end;
-}
-
-.app-link {
-    color: #667eea;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.app-link:hover {
-    text-decoration: underline;
-}
-
-.pagination-container {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    margin-top: 2rem;
-}
-
-@media (max-width: 768px) {
-    .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    
-    .filters {
-        grid-template-columns: 1fr;
-    }
-    
-    .table {
-        font-size: 0.875rem;
-    }
-}
-</style>
 {% endblock %}

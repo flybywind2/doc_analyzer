@@ -1,80 +1,106 @@
 {% extends "base.html" %}
 
-{% block title %}사용자 관리{% endblock %}
+{% block title %}사용자 관리 - AI 과제 지원서 평가 시스템{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>사용자 관리</h2>
-    <div class="actions">
-        <button onclick="showCreateForm()" class="btn btn-primary">사용자 추가</button>
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">사용자 관리</h2>
+            <p class="text-gray-500 mt-1">시스템 사용자를 등록하고 권한을 관리합니다.</p>
+        </div>
+        <button onclick="showCreateForm()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <i class="fa-solid fa-user-plus mr-2"></i> 사용자 추가
+        </button>
+    </div>
+
+    <!-- 사용자 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200" id="users-table">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사용자명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">역할</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- 사용자 목록 -->
-<div class="card">
-    <table class="table" id="users-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>사용자명</th>
-                <th>이름</th>
-                <th>역할</th>
-                <th>사업부</th>
-                <th>상태</th>
-                <th>작업</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="7" class="text-center">로딩 중...</td></tr>
-        </tbody>
-    </table>
-</div>
-
 <!-- 사용자 생성/수정 모달 -->
-<div id="user-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modal-title">사용자 추가</h3>
-            <button onclick="closeModal()" class="close-btn">&times;</button>
+<div id="user-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fa-solid fa-user text-blue-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">사용자 추가</h3>
+                        <div class="mt-4">
+                            <form id="user-form" onsubmit="submitUser(event)">
+                                <input type="hidden" id="user-id">
+                                <div class="mb-4">
+                                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">사용자명 *</label>
+                                    <input type="text" id="username" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">비밀번호 *</label>
+                                    <input type="password" id="password" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                                    <p class="mt-1 text-xs text-gray-500">수정 시 비워두면 변경하지 않습니다</p>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+                                    <input type="text" id="name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="role" class="block text-sm font-medium text-gray-700 mb-1">역할 *</label>
+                                    <select id="role" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" required>
+                                        <option value="reviewer">심사위원</option>
+                                        <option value="admin">관리자</option>
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="department_id" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
+                                    <select id="department_id" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                                        <option value="">없음</option>
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="is_active" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                        <label for="is_active" class="ml-2 block text-sm text-gray-900">
+                                            계정 활성화
+                                        </label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="document.getElementById('user-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    저장
+                </button>
+                <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    취소
+                </button>
+            </div>
         </div>
-        <form id="user-form" onsubmit="submitUser(event)">
-            <input type="hidden" id="user-id">
-            <div class="form-group">
-                <label for="username">사용자명 *</label>
-                <input type="text" id="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">비밀번호 *</label>
-                <input type="password" id="password">
-                <small class="text-muted">수정 시 비워두면 변경하지 않습니다</small>
-            </div>
-            <div class="form-group">
-                <label for="name">이름 *</label>
-                <input type="text" id="name" required>
-            </div>
-            <div class="form-group">
-                <label for="role">역할 *</label>
-                <select id="role" required>
-                    <option value="reviewer">심사위원</option>
-                    <option value="admin">관리자</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="department_id">사업부</label>
-                <select id="department_id">
-                    <option value="">없음</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="is_active"> 활성화
-                </label>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">저장</button>
-                <button type="button" onclick="closeModal()" class="btn btn-secondary">취소</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -127,28 +153,40 @@ async function loadUsers() {
         const tbody = document.querySelector('#users-table tbody');
         
         if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">사용자가 없습니다</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500">사용자가 없습니다</td></tr>';
             return;
         }
         
         tbody.innerHTML = users.map(user => `
-            <tr>
-                <td>${user.id}</td>
-                <td>${user.username}</td>
-                <td>${user.name}</td>
-                <td><span class="badge">${user.role === 'admin' ? '관리자' : '심사위원'}</span></td>
-                <td>${user.department_name || '-'}</td>
-                <td><span class="badge badge-${user.is_active ? 'success' : 'danger'}">${user.is_active ? '활성' : '비활성'}</span></td>
-                <td>
-                    <button onclick="editUser(${user.id})" class="btn btn-sm btn-secondary">수정</button>
-                    <button onclick="deleteUser(${user.id})" class="btn btn-sm btn-danger">삭제</button>
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.id}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.username}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.name}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                        ${user.role === 'admin' ? '관리자' : '심사위원'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.department_name || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${user.is_active ? '활성' : '비활성'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                    <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-900 transition-colors">
+                        <i class="fa-solid fa-pen-to-square"></i> 수정
+                    </button>
+                    <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900 transition-colors">
+                        <i class="fa-solid fa-trash"></i> 삭제
+                    </button>
                 </td>
             </tr>
         `).join('');
     } catch (error) {
         console.error('Error loading users:', error);
         const tbody = document.querySelector('#users-table tbody');
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">데이터를 불러오는데 실패했습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-red-500">데이터를 불러오는데 실패했습니다</td></tr>';
     }
 }
 
@@ -158,7 +196,7 @@ function showCreateForm() {
     document.getElementById('user-id').value = '';
     document.getElementById('is_active').checked = true;
     document.getElementById('password').required = true;
-    document.getElementById('user-modal').style.display = 'flex';
+    document.getElementById('user-modal').classList.remove('hidden');
 }
 
 async function editUser(userId) {
@@ -181,7 +219,7 @@ async function editUser(userId) {
         document.getElementById('role').value = user.role;
         document.getElementById('department_id').value = user.department_id || '';
         document.getElementById('is_active').checked = user.is_active;
-        document.getElementById('user-modal').style.display = 'flex';
+        document.getElementById('user-modal').classList.remove('hidden');
     } catch (error) {
         console.error('Error loading user:', error);
         alert('사용자 정보를 불러오는데 실패했습니다');
@@ -258,73 +296,11 @@ async function deleteUser(userId) {
 }
 
 function closeModal() {
-    document.getElementById('user-modal').style.display = 'none';
+    document.getElementById('user-modal').classList.add('hidden');
 }
 
 // 페이지 로드 시 실행
 loadDepartments();
 loadUsers();
 </script>
-
-<style>
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 8px;
-    padding: 0;
-    max-width: 600px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    margin: 0;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #666;
-}
-
-.modal-content form {
-    padding: 20px;
-}
-
-.btn-sm {
-    padding: 4px 8px;
-    font-size: 12px;
-}
-
-.text-muted {
-    color: #666;
-    font-size: 12px;
-}
-
-.badge-success { background: #10b981; color: white; }
-.badge-danger { background: #ef4444; color: white; }
-</style>
 {% endblock %}
