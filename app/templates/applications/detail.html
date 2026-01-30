@@ -114,48 +114,134 @@ async function loadApplicationDetail() {
             <!-- AI 평가 결과 -->
             <div class="card">
                 <h3>AI 평가 결과</h3>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>AI 등급</label>
-                        <div><span class="badge badge-grade-${app.ai_grade || 'none'}">${app.ai_grade || '미평가'}</span></div>
-                    </div>
-                    <div class="detail-item">
-                        <label>AI 기술 분류</label>
-                        <div>
-                            ${aiCategories.length > 0 
-                                ? aiCategories.map(cat => `<span class="badge">${cat.category} (${Math.round(cat.confidence * 100)}%)</span>`).join(' ')
-                                : '<span class="text-muted">분류되지 않음</span>'}
+                
+                ${app.ai_grade ? `
+                    <!-- AI 기술 분류 -->
+                    <div class="ai-section">
+                        <h4><i class="icon">🤖</i> 1. AI 기술 분류</h4>
+                        <div class="ai-tech-classification">
+                            <div class="tech-badge-large">
+                                <span class="badge badge-tech">${aiEvaluationDetail.ai_technology?.category || app.ai_category_primary || 'Unknown'}</span>
+                                ${aiEvaluationDetail.ai_technology?.confidence ? 
+                                    `<small>(확신도: ${Math.round(aiEvaluationDetail.ai_technology.confidence * 100)}%)</small>` : ''}
+                            </div>
+                            ${aiEvaluationDetail.ai_technology?.reason ? 
+                                `<p class="reason-text">${aiEvaluationDetail.ai_technology.reason}</p>` : ''}
                         </div>
                     </div>
-                    <div class="detail-item full-width">
-                        <label>AI 요약</label>
-                        <div>${app.ai_summary || '평가되지 않음'}</div>
+                    
+                    <!-- Biz Impact -->
+                    <div class="ai-section">
+                        <h4><i class="icon">💼</i> 2. Biz Impact (사업 영향도)</h4>
+                        <div class="impact-score">
+                            <div class="score-display">
+                                <span class="score-number">${aiEvaluationDetail.biz_impact?.score?.toFixed(1) || 'N/A'}</span>
+                                <span class="score-max">/ 5.0</span>
+                                <span class="badge badge-grade-${aiEvaluationDetail.scores?.['Biz Impact']?.grade || 'B'}">
+                                    ${aiEvaluationDetail.scores?.['Biz Impact']?.grade || '-'}
+                                </span>
+                            </div>
+                        </div>
+                        ${aiEvaluationDetail.biz_impact?.summary ? 
+                            `<p class="summary-text">${aiEvaluationDetail.biz_impact.summary}</p>` : ''}
+                        
+                        ${aiEvaluationDetail.biz_impact?.key_benefits?.length > 0 ? `
+                            <div class="key-benefits">
+                                <strong>핵심 이점:</strong>
+                                <ul>
+                                    ${aiEvaluationDetail.biz_impact.key_benefits.map(benefit => 
+                                        `<li>${benefit}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        ${aiEvaluationDetail.biz_impact?.strategic_alignment ? `
+                            <div class="strategic-box">
+                                <strong>전략적 연계성:</strong>
+                                <p>${aiEvaluationDetail.biz_impact.strategic_alignment}</p>
+                            </div>
+                        ` : ''}
                     </div>
-                </div>
-                
-                ${aiEvaluationDetail.scores ? `
-                <div class="evaluation-scores">
-                    <h4>세부 평가 점수</h4>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>평가 항목</th>
-                                <th>점수</th>
-                                <th>등급</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${Object.entries(aiEvaluationDetail.scores).map(([name, data]) => `
-                                <tr>
-                                    <td>${name}</td>
-                                    <td>${data.score}/5</td>
-                                    <td><span class="badge badge-grade-${data.grade}">${data.grade}</span></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                ` : ''}
+                    
+                    <!-- Feasibility -->
+                    <div class="ai-section">
+                        <h4><i class="icon">⚙️</i> 3. Feasibility (실현 가능성)</h4>
+                        <div class="impact-score">
+                            <div class="score-display">
+                                <span class="score-number">${aiEvaluationDetail.feasibility?.score?.toFixed(1) || 'N/A'}</span>
+                                <span class="score-max">/ 5.0</span>
+                                <span class="badge badge-grade-${aiEvaluationDetail.scores?.['Feasibility']?.grade || 'B'}">
+                                    ${aiEvaluationDetail.scores?.['Feasibility']?.grade || '-'}
+                                </span>
+                            </div>
+                        </div>
+                        ${aiEvaluationDetail.feasibility?.summary ? 
+                            `<p class="summary-text">${aiEvaluationDetail.feasibility.summary}</p>` : ''}
+                        
+                        <div class="feasibility-details">
+                            ${aiEvaluationDetail.feasibility?.technical_difficulty ? 
+                                `<div class="detail-badge">
+                                    <strong>기술 난이도:</strong> ${aiEvaluationDetail.feasibility.technical_difficulty}
+                                </div>` : ''}
+                            ${aiEvaluationDetail.feasibility?.timeline_estimate ? 
+                                `<div class="detail-badge">
+                                    <strong>예상 기간:</strong> ${aiEvaluationDetail.feasibility.timeline_estimate}
+                                </div>` : ''}
+                        </div>
+                        
+                        ${aiEvaluationDetail.feasibility?.data_availability ? 
+                            `<p class="detail-text"><strong>데이터 확보:</strong> ${aiEvaluationDetail.feasibility.data_availability}</p>` : ''}
+                        ${aiEvaluationDetail.feasibility?.team_capability ? 
+                            `<p class="detail-text"><strong>팀 역량:</strong> ${aiEvaluationDetail.feasibility.team_capability}</p>` : ''}
+                        
+                        ${aiEvaluationDetail.feasibility?.risks?.length > 0 ? `
+                            <div class="risk-box">
+                                <strong>위험 요소:</strong>
+                                <ul>
+                                    ${aiEvaluationDetail.feasibility.risks.map(risk => 
+                                        `<li>${risk}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- 전반적인 AI 요약 -->
+                    <div class="ai-section overall-summary">
+                        <h4><i class="icon">📋</i> 4. 전반적인 AI 요약</h4>
+                        
+                        <div class="recommendation-badge">
+                            <strong>추천도:</strong>
+                            <span class="badge badge-recommendation">${aiEvaluationDetail.overall_summary?.recommendation || 'N/A'}</span>
+                            <span class="badge badge-grade-${app.ai_grade}">${app.ai_grade}</span>
+                        </div>
+                        
+                        ${aiEvaluationDetail.overall_summary?.core_value ? 
+                            `<div class="core-value-box">
+                                <strong>핵심 가치:</strong>
+                                <p>${aiEvaluationDetail.overall_summary.core_value}</p>
+                            </div>` : ''}
+                        
+                        ${aiEvaluationDetail.overall_summary?.review_points?.length > 0 ? `
+                            <div class="review-points">
+                                <strong>심사 시 주목할 포인트:</strong>
+                                <ul>
+                                    ${aiEvaluationDetail.overall_summary.review_points.map(point => 
+                                        `<li>${point}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        ${aiEvaluationDetail.overall_summary?.final_comment ? 
+                            `<div class="final-comment">
+                                <em>"${aiEvaluationDetail.overall_summary.final_comment}"</em>
+                            </div>` : ''}
+                    </div>
+                ` : `
+                    <p class="text-muted">아직 AI 평가가 진행되지 않았습니다.</p>
+                `}
             </div>
             
             <!-- 과제 내용 -->
@@ -626,6 +712,232 @@ loadApplicationDetail();
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
+}
+
+/* AI 평가 결과 새 스타일 */
+.ai-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ai-section:last-child {
+    border-bottom: none;
+}
+
+.ai-section h4 {
+    color: #374151;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ai-section .icon {
+    font-size: 1.5rem;
+}
+
+.ai-tech-classification {
+    background: #f0f9ff;
+    border-left: 4px solid #3b82f6;
+    padding: 1rem;
+    border-radius: 4px;
+}
+
+.tech-badge-large {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.badge-tech {
+    background: #3b82f6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.reason-text {
+    color: #1e40af;
+    margin: 0.5rem 0 0 0;
+    line-height: 1.6;
+}
+
+.impact-score {
+    margin-bottom: 1rem;
+}
+
+.score-display {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.score-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.score-max {
+    font-size: 1.2rem;
+    color: #6b7280;
+}
+
+.summary-text {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 6px;
+    line-height: 1.6;
+    color: #374151;
+    margin: 0.75rem 0;
+}
+
+.key-benefits {
+    background: #ecfdf5;
+    border-left: 4px solid #10b981;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.key-benefits ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.key-benefits li {
+    margin: 0.25rem 0;
+    color: #065f46;
+}
+
+.strategic-box {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.strategic-box p {
+    margin: 0.5rem 0 0 0;
+    color: #92400e;
+    line-height: 1.6;
+}
+
+.feasibility-details {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+}
+
+.detail-badge {
+    background: #e0e7ff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    color: #3730a3;
+    font-size: 0.9rem;
+}
+
+.detail-text {
+    color: #374151;
+    margin: 0.5rem 0;
+    line-height: 1.6;
+}
+
+.risk-box {
+    background: #fee2e2;
+    border-left: 4px solid #ef4444;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.risk-box ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.risk-box li {
+    margin: 0.25rem 0;
+    color: #991b1b;
+}
+
+.overall-summary {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+}
+
+.recommendation-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 6px;
+}
+
+.badge-recommendation {
+    background: #10b981;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.core-value-box {
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+}
+
+.core-value-box p {
+    margin: 0.5rem 0 0 0;
+    color: #1e293b;
+    line-height: 1.8;
+    font-size: 1.05rem;
+}
+
+.review-points {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.review-points ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.review-points li {
+    margin: 0.5rem 0;
+    color: #78350f;
+    font-weight: 500;
+}
+
+.final-comment {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-style: italic;
 }
 </style>
 {% endblock %}

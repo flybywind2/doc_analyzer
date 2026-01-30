@@ -48,12 +48,29 @@ class LLMEvaluator:
             Formatted prompt string
         """
         # 과제 정보 구성
+        department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
+        
+        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 과제 심사 담당자입니다.
+조직: {department_info}
+
+당신의 역할:
+- 해당 조직의 관점에서 AI 과제의 사업적 가치(Biz Impact)와 실현 가능성(Feasibility)을 평가
+- 심사위원들이 긍정적으로 평가할 수 있도록 과제의 강점을 부각
+- 조직의 업무 특성과 전략적 방향성을 고려한 평가
+
+평가 원칙:
+1. 사업부와 부서의 특성을 반영한 맞춤형 평가
+2. 실질적인 업무 개선 효과에 초점
+3. 기술적 실현 가능성을 현실적으로 평가
+4. 심사위원의 평가를 지원하는 관점에서 작성
+"""
+
         app_info = f"""
 # AI 과제 지원서 평가
 
 ## 과제 기본 정보
 - 과제명: {application.subject or 'N/A'}
-- 사업부: {application.division or 'N/A'}
+- 조직: {department_info}
 - 참여 인원: {application.participant_count or 'N/A'}명
 - 대표자: {application.representative_name or 'N/A'}
 
@@ -81,48 +98,92 @@ class LLMEvaluator:
 
 ---
 
-## 평가 기준 ({len(criteria_list)}개 항목)
+## 평가 요청사항
+
+다음 4가지 관점에서 평가해주세요:
+
+### 1. AI 기술 분류
+과제에서 활용하려는 AI 기술을 다음 중 하나로 분류하고, 선택 이유를 설명하세요:
+- **ML (Machine Learning)**: 데이터 기반 예측, 분류, 회귀 분석 등
+- **챗봇 (Chatbot)**: 대화형 인터페이스, 자동 응답, Q&A 시스템 등
+- **Agent**: 자율적 의사결정, 복잡한 작업 자동화, 멀티스텝 프로세스 등
+
+### 2. Biz Impact (사업 영향도)
+{department_info} 조직 관점에서:
+- 업무 효율성 개선 정도
+- 비용 절감 또는 매출 증대 효과
+- 조직 전략과의 연계성
+- 정량적 효과 (가능한 경우)
+
+### 3. Feasibility (실현 가능성)
+- 기술적 난이도와 현재 기술 수준
+- 필요한 데이터의 확보 가능성
+- 참여 인원의 역량과 과제 요구사항 부합도
+- 예상 개발 기간과 리소스
+- 잠재적 위험 요소와 대응 방안
+
+### 4. 전반적인 AI 요약
+심사위원이 한눈에 파악할 수 있도록:
+- 과제의 핵심 가치 (3-5줄)
+- 추천 이유 또는 고려사항
+- 심사 시 주목할 포인트
 """
         
-        for i, criteria in enumerate(criteria_list, 1):
-            app_info += f"""
-{i}. **{criteria.name}** (가중치: {criteria.weight})
-   - {criteria.description}
-   - 평가 가이드: {criteria.evaluation_guide}
-"""
-        
-        prompt = f"""{app_info}
+        prompt = f"""{system_prompt}
+
+{app_info}
 
 ---
-
-## 평가 지침
-1. 각 평가 기준에 대해 **지원서에 명시된 내용을 우선**으로 평가하세요.
-2. 명시되지 않았지만 추론 가능한 경우, **"[AI 추론]"** 표시를 명확히 하세요.
-3. 각 항목을 S/A/B/C/D 5단계로 평가하세요:
-   - S: 매우 우수 (5점)
-   - A: 우수 (4점)
-   - B: 보통 (3점)
-   - C: 미흡 (2점)
-   - D: 매우 미흡 (1점)
-
-4. 가중치를 반영하여 종합 등급을 산출하세요.
-5. 과제 요약은 **3-5개 bullet point** 형태로 작성하세요.
 
 ## 응답 형식 (JSON)
 다음 JSON 형식으로 정확히 응답하세요:
 
 {{
-  "evaluation_detail": {{
-    "경영성과": {{"grade": "A", "score": 4, "comment": "구체적인 평가 내용..."}},
-    "전략과제 유사도": {{"grade": "B", "score": 3, "comment": "구체적인 평가 내용..."}},
-    ...
+  "ai_technology_category": {{
+    "category": "ML" 또는 "챗봇" 또는 "Agent",
+    "reason": "이 기술로 분류한 이유를 2-3문장으로 설명",
+    "confidence": 0.9  // 0.0 ~ 1.0 사이 확신도
   }},
-  "overall_grade": "A",
-  "overall_score": 4.2,
-  "summary": "- Bullet point 1\\n- Bullet point 2\\n- Bullet point 3"
+  "biz_impact": {{
+    "score": 4.5,  // 1.0 ~ 5.0
+    "summary": "사업 영향도 요약 (3-5줄)",
+    "key_benefits": [
+      "핵심 이점 1",
+      "핵심 이점 2",
+      "핵심 이점 3"
+    ],
+    "strategic_alignment": "조직 전략과의 연계성 설명 (2-3줄)"
+  }},
+  "feasibility": {{
+    "score": 3.8,  // 1.0 ~ 5.0
+    "summary": "실현 가능성 요약 (3-5줄)",
+    "technical_difficulty": "상/중/하 중 하나와 이유",
+    "data_availability": "데이터 확보 가능성 평가",
+    "team_capability": "팀 역량 평가",
+    "risks": [
+      "위험 요소 1",
+      "위험 요소 2"
+    ],
+    "timeline_estimate": "예상 개발 기간 (예: 3-6개월)"
+  }},
+  "overall_summary": {{
+    "recommendation": "강력 추천 / 추천 / 조건부 추천 / 보류 중 하나",
+    "core_value": "과제의 핵심 가치 설명 (3-5줄)",
+    "review_points": [
+      "심사 시 주목할 포인트 1",
+      "심사 시 주목할 포인트 2",
+      "심사 시 주목할 포인트 3"
+    ],
+    "final_comment": "최종 한줄 평가"
+  }}
 }}
 
-**중요: 반드시 유효한 JSON 형식으로 응답하세요.**
+**중요사항:**
+1. 반드시 유효한 JSON 형식으로 응답하세요
+2. 모든 필드를 빠짐없이 채워주세요
+3. score는 반드시 숫자(float)로 작성하세요
+4. {department_info} 조직의 특성을 반영하여 평가하세요
+5. 심사위원이 긍정적으로 평가할 수 있도록 강점을 부각하세요
 """
         return prompt
     
@@ -214,29 +275,67 @@ class LLMEvaluator:
             True if successful, False otherwise
         """
         try:
-            # Get evaluation criteria if not provided
+            # Get evaluation criteria if not provided (backward compatibility)
             if criteria_list is None:
                 criteria_list = db.query(EvaluationCriteria).filter(
                     EvaluationCriteria.is_active == True
                 ).order_by(EvaluationCriteria.display_order).all()
             
-            if not criteria_list:
-                print("❌ No evaluation criteria found")
-                return False
-            
             # Build prompt
-            prompt = self.build_evaluation_prompt(application, criteria_list)
+            prompt = self.build_evaluation_prompt(application, criteria_list or [])
             
             # Evaluate with LLM
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
             result = self.evaluate_with_llm(prompt)
             
-            # Extract results
-            evaluation_detail = result.get("evaluation_detail", {})
-            overall_grade = result.get("overall_grade") or self.calculate_overall_grade(evaluation_detail)
-            summary = result.get("summary", "")
+            # Extract new format results
+            ai_tech = result.get("ai_technology_category", {})
+            biz_impact = result.get("biz_impact", {})
+            feasibility = result.get("feasibility", {})
+            overall = result.get("overall_summary", {})
+            
+            # Build AI categories for compatibility
+            ai_categories = [{
+                "category": ai_tech.get("category", "Unknown"),
+                "confidence": ai_tech.get("confidence", 0.0),
+                "reason": ai_tech.get("reason", "")
+            }]
+            
+            # Build evaluation detail for new format
+            evaluation_detail = {
+                "ai_technology": ai_tech,
+                "biz_impact": biz_impact,
+                "feasibility": feasibility,
+                "overall_summary": overall,
+                "scores": {
+                    "Biz Impact": {
+                        "score": biz_impact.get("score", 3.0),
+                        "grade": self._score_to_grade(biz_impact.get("score", 3.0))
+                    },
+                    "Feasibility": {
+                        "score": feasibility.get("score", 3.0),
+                        "grade": self._score_to_grade(feasibility.get("score", 3.0))
+                    }
+                }
+            }
+            
+            # Calculate overall grade from biz_impact and feasibility scores
+            avg_score = (biz_impact.get("score", 3.0) + feasibility.get("score", 3.0)) / 2
+            overall_grade = self._score_to_grade(avg_score)
+            
+            # Build summary
+            summary_parts = []
+            summary_parts.append(f"**AI 기술 분류**: {ai_tech.get('category', 'Unknown')}")
+            summary_parts.append(f"\n**Biz Impact**: {biz_impact.get('summary', 'N/A')}")
+            summary_parts.append(f"\n**Feasibility**: {feasibility.get('summary', 'N/A')}")
+            summary_parts.append(f"\n**추천**: {overall.get('recommendation', 'N/A')}")
+            summary_parts.append(f"\n\n{overall.get('core_value', '')}")
+            
+            summary = "".join(summary_parts)
             
             # Update application
+            application.ai_categories = ai_categories
+            application.ai_category_primary = ai_tech.get("category", "Unknown")
             application.ai_evaluation_detail = evaluation_detail
             application.ai_grade = overall_grade
             application.ai_summary = summary
@@ -251,18 +350,33 @@ class LLMEvaluator:
                 grade=overall_grade,
                 summary=summary,
                 evaluation_detail=evaluation_detail,
-                ai_categories=application.ai_categories
+                ai_categories=ai_categories
             )
             db.add(history)
             
             db.commit()
-            print(f"✅ Application {application.id} evaluated: {overall_grade}")
+            print(f"✅ Application {application.id} evaluated: {overall_grade} ({ai_tech.get('category', 'Unknown')})")
             return True
             
         except Exception as e:
             print(f"❌ Error evaluating application {application.id}: {e}")
+            import traceback
+            traceback.print_exc()
             db.rollback()
             return False
+    
+    def _score_to_grade(self, score: float) -> str:
+        """Convert numeric score to letter grade"""
+        if score >= 4.5:
+            return "S"
+        elif score >= 3.5:
+            return "A"
+        elif score >= 2.5:
+            return "B"
+        elif score >= 1.5:
+            return "C"
+        else:
+            return "D"
 
 
 # Singleton instance
