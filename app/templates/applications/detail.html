@@ -111,133 +111,48 @@ async function loadApplicationDetail() {
                 </div>
             </div>
             
-            <!-- AI 평가 결과 -->
+            <!-- AI 요약 결과 -->
             <div class="card">
-                <h3>AI 평가 결과</h3>
+                <h3>📋 AI 요약 결과</h3>
+                <p class="summary-note">이 요약은 지원서 내용을 기반으로 AI가 객관적으로 분석한 참고 자료입니다.</p>
                 
                 ${app.ai_grade ? `
-                    <!-- AI 기술 분류 -->
-                    <div class="ai-section">
-                        <h4><i class="icon">🤖</i> 1. AI 기술 분류</h4>
-                        <div class="ai-tech-classification">
-                            <div class="tech-badge-large">
-                                <span class="badge badge-tech">${aiEvaluationDetail.ai_technology?.category || app.ai_category_primary || 'Unknown'}</span>
-                            </div>
-                            ${aiEvaluationDetail.ai_technology?.reason ? 
-                                `<p class="reason-text">${aiEvaluationDetail.ai_technology.reason}</p>` : ''}
+                    <!-- 1. AI 기술 분류 -->
+                    <div class="summary-section">
+                        <h4>1. AI 기술 분류</h4>
+                        <div class="category-badge">
+                            <span class="badge badge-category">${aiEvaluationDetail.ai_category || app.ai_category_primary || '분류'}</span>
                         </div>
                     </div>
                     
-                    <!-- 왜 이 과제를 추천하는가 -->
-                    <div class="ai-section">
-                        <h4><i class="icon">💡</i> 2. 왜 이 과제를 추천하는가?</h4>
-                        
-                        ${aiEvaluationDetail.why_recommend?.problem_solving ? `
-                            <div class="info-box problem-solving">
-                                <strong>🎯 어떤 업무 문제를 해결하나요?</strong>
-                                <p>${aiEvaluationDetail.why_recommend.problem_solving}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${aiEvaluationDetail.why_recommend?.positive_impact ? `
-                            <div class="info-box positive-impact">
-                                <strong>✨ 조직에 어떤 긍정적 영향을 주나요?</strong>
-                                <p>${aiEvaluationDetail.why_recommend.positive_impact}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${aiEvaluationDetail.why_recommend?.urgency ? `
-                            <div class="info-box urgency">
-                                <strong>⏰ 왜 지금 이 과제가 필요한가요?</strong>
-                                <p>${aiEvaluationDetail.why_recommend.urgency}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${aiEvaluationDetail.why_recommend?.core_value ? `
-                            <div class="info-box core-value">
-                                <strong>💎 이 과제의 핵심 가치는 무엇인가요?</strong>
-                                <p>${aiEvaluationDetail.why_recommend.core_value}</p>
-                            </div>
-                        ` : ''}
+                    <!-- 2. 조직 관점의 경영효과 -->
+                    <div class="summary-section">
+                        <h4>2. 조직 관점의 경영효과</h4>
+                        <div class="summary-content">
+                            ${aiEvaluationDetail.business_impact || '경영효과 정보가 없습니다.'}
+                        </div>
                     </div>
                     
-                    <!-- 실현 가능성 -->
-                    <div class="ai-section">
-                        <h4><i class="icon">⚙️</i> 3. 실현 가능성은 어떤가요?</h4>
-                        
-                        <div class="feasibility-summary">
-                            <div class="feasibility-status ${aiEvaluationDetail.feasibility_assessment?.is_feasible ? 'feasible' : 'not-feasible'}">
-                                <span class="status-icon">${aiEvaluationDetail.feasibility_assessment?.is_feasible ? '✅' : '⚠️'}</span>
-                                <span class="status-text">${aiEvaluationDetail.feasibility_assessment?.is_feasible ? '실현 가능' : '검토 필요'}</span>
-                            </div>
+                    <!-- 3. AI 관점의 구현 가능성 -->
+                    <div class="summary-section">
+                        <h4>3. AI 관점의 구현 가능성</h4>
+                        <div class="summary-content">
+                            ${aiEvaluationDetail.technical_feasibility || '구현 가능성 정보가 없습니다.'}
                         </div>
-                        
-                        <div class="feasibility-grid">
-                            ${aiEvaluationDetail.feasibility_assessment?.technical_difficulty ? `
-                                <div class="feasibility-item">
-                                    <div class="item-label">기술 난이도</div>
-                                    <div class="difficulty-badge difficulty-${aiEvaluationDetail.feasibility_assessment.technical_difficulty}">
-                                        ${aiEvaluationDetail.feasibility_assessment.technical_difficulty}
-                                    </div>
-                                    ${aiEvaluationDetail.feasibility_assessment.difficulty_reason ? 
-                                        `<p class="item-description">${aiEvaluationDetail.feasibility_assessment.difficulty_reason}</p>` : ''}
-                                </div>
-                            ` : ''}
-                            
-                            ${aiEvaluationDetail.feasibility_assessment?.timeline_estimate ? `
-                                <div class="feasibility-item">
-                                    <div class="item-label">예상 완료 시기</div>
-                                    <div class="timeline-badge">⏱️ ${aiEvaluationDetail.feasibility_assessment.timeline_estimate}</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                        
-                        ${aiEvaluationDetail.feasibility_assessment?.data_availability ? `
-                            <div class="detail-section">
-                                <strong>📊 데이터 확보 가능성</strong>
-                                <p>${aiEvaluationDetail.feasibility_assessment.data_availability}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${aiEvaluationDetail.feasibility_assessment?.team_capability ? `
-                            <div class="detail-section">
-                                <strong>👥 팀 역량 평가</strong>
-                                <p>${aiEvaluationDetail.feasibility_assessment.team_capability}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${aiEvaluationDetail.feasibility_assessment?.expected_challenges?.length > 0 ? `
-                            <div class="challenges-box">
-                                <strong>⚠️ 예상되는 어려움</strong>
-                                <ul>
-                                    ${aiEvaluationDetail.feasibility_assessment.expected_challenges.map(challenge => 
-                                        `<li>${challenge}</li>`
-                                    ).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
                     </div>
                     
-                    <!-- 한줄 요약 -->
-                    <div class="ai-section overall-summary">
-                        <h4><i class="icon">📋</i> 4. 한줄 요약</h4>
-                        
-                        <div class="one-liner-box">
-                            <div class="recommendation-header">
-                                <span class="badge badge-recommendation-${aiEvaluationDetail.one_line_summary?.recommendation?.replace(' ', '-')}">${aiEvaluationDetail.one_line_summary?.recommendation || 'N/A'}</span>
-                                <span class="badge badge-grade-${app.ai_grade}">${app.ai_grade}</span>
-                            </div>
-                            
-                            ${aiEvaluationDetail.one_line_summary?.summary ? 
-                                `<p class="summary-text">${aiEvaluationDetail.one_line_summary.summary}</p>` : ''}
-                            
-                            ${aiEvaluationDetail.one_line_summary?.recommendation_reason ? 
-                                `<p class="reason-text">${aiEvaluationDetail.one_line_summary.recommendation_reason}</p>` : ''}
+                    <!-- 4. 전체 지원서 5줄 요약 -->
+                    <div class="summary-section">
+                        <h4>4. 전체 지원서 5줄 요약</h4>
+                        <div class="summary-list">
+                            ${aiEvaluationDetail.five_line_summary && aiEvaluationDetail.five_line_summary.length > 0 ? 
+                                aiEvaluationDetail.five_line_summary.map(line => `<div class="summary-line">${line}</div>`).join('') :
+                                '<div class="summary-line">요약 정보가 없습니다.</div>'}
                         </div>
                     </div>
                     
                     <div class="ai-disclaimer">
-                        ℹ️ 이 평가는 AI가 생성한 참고 자료입니다. 최종 평가는 심사위원의 판단이 우선합니다.
+                        ℹ️ 이 요약은 AI가 지원서 내용을 기반으로 생성한 참고 자료입니다. 최종 평가는 심사위원의 판단이 우선합니다.
                     </div>
                 ` : `
                     <p class="text-muted">아직 AI 평가가 진행되지 않았습니다.</p>
@@ -714,18 +629,76 @@ loadApplicationDetail();
     font-size: 0.75rem;
 }
 
-/* AI 평가 결과 새 스타일 */
-.ai-section {
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid #e5e7eb;
+/* AI 요약 결과 스타일 - 간결한 4항목 형식 */
+.summary-note {
+    background: #f0f9ff;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid #3b82f6;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    color: #1e40af;
+    font-size: 0.9rem;
 }
 
-.ai-section:last-child {
-    border-bottom: none;
+.summary-section {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
 }
 
-.ai-section h4 {
+.summary-section h4 {
+    color: #374151;
+    font-size: 1.1rem;
+    margin: 0 0 1rem 0;
+    font-weight: 600;
+}
+
+.category-badge {
+    display: inline-block;
+}
+
+.badge-category {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.summary-content {
+    line-height: 1.8;
+    color: #374151;
+    white-space: pre-wrap;
+}
+
+.summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.summary-line {
+    background: white;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid #667eea;
+    border-radius: 4px;
+    line-height: 1.6;
+    color: #374151;
+}
+
+.ai-disclaimer {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #f1f5f9;
+    border-left: 4px solid #64748b;
+    border-radius: 4px;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
     color: #374151;
     font-size: 1.1rem;
     margin-bottom: 1rem;

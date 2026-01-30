@@ -50,19 +50,16 @@ class LLMEvaluator:
         # 과제 정보 구성
         department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
         
-        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 과제 심사 담당자입니다.
+        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
 조직: {department_info}
 
-당신의 역할:
-- 해당 조직의 관점에서 AI 과제의 사업적 가치(Biz Impact)와 실현 가능성(Feasibility)을 평가
-- 심사위원들이 긍정적으로 평가할 수 있도록 과제의 강점을 부각
-- 조직의 업무 특성과 전략적 방향성을 고려한 평가
+역할: 지원서 내용을 객관적으로 요약하고 분석합니다.
 
-평가 원칙:
-1. 사업부와 부서의 특성을 반영한 맞춤형 평가
-2. 실질적인 업무 개선 효과에 초점
-3. 기술적 실현 가능성을 현실적으로 평가
-4. 심사위원의 평가를 지원하는 관점에서 작성
+중요 원칙:
+1. 지원서에 작성된 내용만을 기반으로 요약 (할루시네이션 금지)
+2. {department_info} 조직의 업무 특성을 고려한 해석
+3. 사실 기반의 객관적 분석
+4. 과장하거나 추측하지 말 것
 """
 
         app_info = f"""
@@ -98,33 +95,36 @@ class LLMEvaluator:
 
 ---
 
-## 평가 요청사항
+## 요약 요청사항
 
-다음 4가지 관점에서 평가해주세요:
+지원서 내용을 바탕으로 다음 4가지만 간결하게 요약하세요:
 
 ### 1. AI 기술 분류
-과제에서 활용하려는 AI 기술을 다음 중 하나로 분류하고, 선택 이유를 설명하세요:
-- **ML (Machine Learning)**: 데이터 기반 예측, 분류, 회귀 분석 등
-- **챗봇 (Chatbot)**: 대화형 인터페이스, 자동 응답, Q&A 시스템 등
-- **Agent**: 자율적 의사결정, 복잡한 작업 자동화, 멀티스텝 프로세스 등
+지원서에서 언급된 AI 기술을 다음 중 **하나만** 선택하세요:
+- **예측**: 미래 값 예측, 수요 예측, 트렌드 분석
+- **분류**: 이미지/텍스트 분류, 불량 검출, 카테고리 분류
+- **챗봇**: 대화형 인터페이스, 자동 응답, Q&A
+- **에이전트**: 자율 의사결정, 복잡한 작업 자동화, 워크플로우 자동화
+- **최적화**: 자원 최적화, 스케줄링, 경로 최적화
+- **강화학습**: 학습 기반 의사결정, 시뮬레이션 최적화
 
-### 2. 왜 이 과제를 추천하는가?
-{department_info} 조직 관점에서 이 과제가 가치 있는 이유를 설명하세요:
-- 어떤 업무 문제를 해결하나요?
-- 조직에 어떤 긍정적 영향을 주나요?
-- 왜 지금 이 과제가 필요한가요?
-- 이 과제의 핵심 가치는 무엇인가요?
+### 2. 조직 관점의 경영효과
+{department_info} 조직 관점에서 이 과제의 경영효과를 요약하세요 (2-3문장):
+- 지원서에 작성된 기대효과 기반으로만 작성
+- 추측이나 과장 금지
 
-### 3. 실현 가능성은 어떤가요?
-실제로 구현할 수 있을지 현실적으로 평가하세요:
-- 기술적으로 가능한 과제인가요? (난이도: 상/중/하)
-- 필요한 데이터를 확보할 수 있나요?
-- 팀의 역량이 충분한가요?
-- 어떤 어려움이 예상되나요?
-- 언제쯤 완성할 수 있을까요?
+### 3. AI 관점의 구현 가능성
+지원서 내용(참여인원, 기술역량, 데이터 등)을 바탕으로 구현 가능성 평가 (2-3문장):
+- 지원서에 작성된 내용만 참고
+- 기술적 난이도, 데이터 확보, 팀 역량 등을 객관적으로 평가
 
-### 4. 한줄 요약
-이 과제를 한 문장으로 요약하고 추천도를 제시하세요.
+### 4. 전체 지원서 5줄 요약
+이 지원서의 핵심 내용을 5줄로 요약:
+1. 과제 목적 (1줄)
+2. 현재 문제 (1줄)
+3. 해결 방안 (1줄)
+4. 기대 효과 (1줄)
+5. 구현 계획 (1줄)
 """
         
         prompt = f"""{system_prompt}
@@ -137,42 +137,25 @@ class LLMEvaluator:
 다음 JSON 형식으로 정확히 응답하세요:
 
 {{
-  "ai_technology_category": {{
-    "category": "ML" 또는 "챗봇" 또는 "Agent",
-    "reason": "이 기술로 분류한 이유를 2-3문장으로 설명"
-  }},
-  "why_recommend": {{
-    "problem_solving": "어떤 업무 문제를 해결하나요? (2-3문장)",
-    "positive_impact": "조직에 어떤 긍정적 영향을 주나요? (2-3문장)",
-    "urgency": "왜 지금 이 과제가 필요한가요? (1-2문장)",
-    "core_value": "이 과제의 핵심 가치는 무엇인가요? (2-3문장)"
-  }},
-  "feasibility_assessment": {{
-    "is_feasible": true,  // true or false
-    "technical_difficulty": "상" 또는 "중" 또는 "하",
-    "difficulty_reason": "난이도 판단 이유 (2-3문장)",
-    "data_availability": "필요한 데이터를 확보할 수 있나요? (2-3문장)",
-    "team_capability": "팀의 역량이 충분한가요? (2-3문장)",
-    "expected_challenges": [
-      "예상 어려움 1",
-      "예상 어려움 2"
-    ],
-    "timeline_estimate": "언제쯤 완성할 수 있을까요? (예: 3-6개월)"
-  }},
-  "one_line_summary": {{
-    "summary": "이 과제를 한 문장으로 요약 (1문장, 핵심만)",
-    "recommendation": "강력 추천" 또는 "추천" 또는 "조건부 추천" 또는 "보류",
-    "recommendation_reason": "추천도를 선택한 이유 (1-2문장)"
-  }}
+  "ai_category": "예측" 또는 "분류" 또는 "챗봇" 또는 "에이전트" 또는 "최적화" 또는 "강화학습",
+  "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약 (지원서 내용 기반)",
+  "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가 (지원서 내용 기반)",
+  "five_line_summary": [
+    "1. 과제 목적",
+    "2. 현재 문제",
+    "3. 해결 방안",
+    "4. 기대 효과",
+    "5. 구현 계획"
+  ]
 }}
 
-**중요사항:**
-1. 반드시 유효한 JSON 형식으로 응답하세요
-2. 모든 필드를 빠짐없이 채워주세요
-3. 점수(score)는 절대 포함하지 마세요 - 심사위원이 숫자에 영향받지 않도록
-4. {department_info} 조직의 특성을 반영하여 평가하세요
-5. 간결하고 명확하게 작성하세요 - 심사위원이 빠르게 이해할 수 있도록
-6. 긍정적이고 건설적인 관점으로 작성하세요
+**중요 규칙:**
+1. 유효한 JSON 형식 필수
+2. ai_category는 6개 선택지 중 하나만 (예측/분류/챗봇/에이전트/최적화/강화학습)
+3. 지원서에 작성된 내용만 사용 (할루시네이션 금지)
+4. 추측이나 과장 금지 - 사실만 기반
+5. {department_info} 조직 특성 반영
+6. 간결하고 명확하게 (요약의 목적)
 """
         return prompt
     
@@ -277,50 +260,46 @@ class LLMEvaluator:
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
             result = self.evaluate_with_llm(prompt)
             
-            # Extract new format results
-            ai_tech = result.get("ai_technology_category", {})
-            why_recommend = result.get("why_recommend", {})
-            feasibility = result.get("feasibility_assessment", {})
-            one_liner = result.get("one_line_summary", {})
+            # Extract simplified format results
+            ai_category = result.get("ai_category", "분류")
+            business_impact = result.get("business_impact", "")
+            technical_feasibility = result.get("technical_feasibility", "")
+            five_line_summary = result.get("five_line_summary", [])
             
             # Build AI categories for compatibility
             ai_categories = [{
-                "category": ai_tech.get("category", "Unknown"),
-                "reason": ai_tech.get("reason", "")
+                "category": ai_category,
+                "description": "지원서 기반 AI 요약"
             }]
             
-            # Build evaluation detail for new format (NO SCORES)
+            # Build evaluation detail - simplified 4-item format
             evaluation_detail = {
-                "ai_technology": ai_tech,
-                "why_recommend": why_recommend,
-                "feasibility_assessment": feasibility,
-                "one_line_summary": one_liner
+                "ai_category": ai_category,
+                "business_impact": business_impact,
+                "technical_feasibility": technical_feasibility,
+                "five_line_summary": five_line_summary
             }
             
-            # Map recommendation to grade (without showing numeric scores)
-            recommendation = one_liner.get("recommendation", "추천")
-            if recommendation == "강력 추천":
-                overall_grade = "S"
-            elif recommendation == "추천":
-                overall_grade = "A"
-            elif recommendation == "조건부 추천":
-                overall_grade = "B"
-            else:
+            # Simple grade based on feasibility tone
+            if "어렵" in technical_feasibility or "불가능" in technical_feasibility:
                 overall_grade = "C"
+            elif "가능" in technical_feasibility and "충분" in technical_feasibility:
+                overall_grade = "A"
+            else:
+                overall_grade = "B"
             
             # Build summary
             summary_parts = []
-            summary_parts.append(f"**🤖 AI 기술**: {ai_tech.get('category', 'Unknown')}")
-            summary_parts.append(f"\n\n**💡 한줄 요약**: {one_liner.get('summary', 'N/A')}")
-            summary_parts.append(f"\n\n**✅ 추천도**: {recommendation}")
-            if one_liner.get('recommendation_reason'):
-                summary_parts.append(f"\n{one_liner.get('recommendation_reason')}")
+            summary_parts.append(f"**AI 기술 분류**: {ai_category}\n\n")
+            summary_parts.append(f"**조직 관점의 경영효과**\n{business_impact}\n\n")
+            summary_parts.append(f"**AI 관점의 구현 가능성**\n{technical_feasibility}\n\n")
+            summary_parts.append(f"**전체 지원서 5줄 요약**\n" + "\n".join(five_line_summary))
             
             summary = "".join(summary_parts)
             
             # Update application
             application.ai_categories = ai_categories
-            application.ai_category_primary = ai_tech.get("category", "Unknown")
+            application.ai_category_primary = ai_category
             application.ai_evaluation_detail = evaluation_detail
             application.ai_grade = overall_grade
             application.ai_summary = summary
@@ -340,7 +319,7 @@ class LLMEvaluator:
             db.add(history)
             
             db.commit()
-            print(f"✅ Application {application.id} evaluated: {overall_grade} ({ai_tech.get('category', 'Unknown')})")
+            print(f"✅ Application {application.id} evaluated: {overall_grade} ({ai_category})")
             return True
             
         except Exception as e:
