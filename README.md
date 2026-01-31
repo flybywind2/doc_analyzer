@@ -69,13 +69,50 @@ cp .env.example .env
 - LLM API 정보 (Base URL, API Key, Credential Key, Model Name)
 - SECRET_KEY (최소 32자 이상의 랜덤 문자열)
 
-### 4. 애플리케이션 실행
+### 4. 데이터베이스 초기화 (PC 환경 필수)
+
+⚠️ **PC에서 clone한 후 최초 1회 실행 필수**
+
+```bash
+python init_db.py
+```
+
+이 스크립트는 다음을 수행합니다:
+- `data/` 디렉토리 생성
+- SQLite 데이터베이스 파일 생성 (`data/app.db`)
+- 기본 관리자 계정 생성
+- 기본 사업부, 카테고리, 평가기준 데이터 생성
+- (선택) 테스트용 더미 데이터 생성
+
+**출력 예시:**
+```
+============================================================
+AI Application Evaluator - Database Initialization
+============================================================
+
+🔨 Creating database tables...
+✅ Database schema created successfully
+
+📊 Initializing default data...
+✅ Default data initialized
+
+❓ Generate dummy test data? (y/n) [default: n]: n
+⏭️  Skipping dummy data generation
+
+✅ Database file created: data/app.db (204.00 KB)
+
+============================================================
+🎉 Database initialization completed!
+============================================================
+```
+
+### 5. 애플리케이션 실행
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 5. 웹 브라우저 접속
+### 6. 웹 브라우저 접속
 
 ```
 http://localhost:8000
@@ -189,8 +226,18 @@ http://localhost:8000
 - Rate Limit 확인 (동기화 시 sleep 적용)
 
 ### 데이터베이스 오류
+
+**"데이터베이스를 찾을 수 없다" 에러:**
+```bash
+# PC에서 clone 후 최초 실행 시 발생
+# 해결방법: 데이터베이스 초기화 스크립트 실행
+python init_db.py
+```
+
+**기타 DB 오류:**
 - `data/` 디렉토리 쓰기 권한 확인
-- SQLite 파일 손상 시 삭제 후 재실행
+- SQLite 파일 손상 시 삭제 후 `python init_db.py` 재실행
+- Windows에서 경로 문제 시 절대 경로로 DATABASE_URL 설정
 
 ## 개발자 정보
 
