@@ -142,22 +142,45 @@ class ConfluenceParser:
         errors = []
         
         try:
-            # 기본사항 파싱
+            # 기본사항 파싱 - 헤더 행 다음 행에서 실제 내용 추출
+            # class="subject" 등의 헤더 셀은 보통 비어있고, 다음 <tr>의 <td>에 내용이 있음
+            
+            # 과제명 (class="subject")
             subject_elem = soup.find(class_="subject")
             if subject_elem:
-                data["subject"] = subject_elem.get_text(strip=True)
+                header_row = subject_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["subject"] = content_cell.get_text(strip=True)
             
+            # 소속 (class="division")
             division_elem = soup.find(class_="division")
             if division_elem:
-                data["division"] = division_elem.get_text(strip=True)
+                header_row = division_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["division"] = content_cell.get_text(strip=True)
             
+            # 참여인원 (class="dept")
             dept_elem = soup.find(class_="dept")
             if dept_elem:
-                dept_text = dept_elem.get_text(strip=True)
-                # 숫자만 추출
-                numbers = re.findall(r'\d+', dept_text)
-                if numbers:
-                    data["participant_count"] = int(numbers[0])
+                header_row = dept_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            dept_text = content_cell.get_text(strip=True)
+                            # 숫자만 추출
+                            numbers = re.findall(r'\d+', dept_text)
+                            if numbers:
+                                data["participant_count"] = int(numbers[0])
             
             # 대표자 정보 - colspan 기반 파싱 (구조 분석 필요)
             # 예: 테이블에서 "대표자" 라벨을 찾고 다음 td에서 이름, Knox ID 추출
@@ -171,41 +194,79 @@ class ConfluenceParser:
                         data["representative_name"] = parts[0]
                         data["representative_knox_id"] = parts[1] if len(parts) > 1 else None
             
-            # 사전 설문 파싱
+            # 사전 설문 파싱 - 헤더 행 다음 행에서 실제 내용 추출
             pre_survey = {}
             for i in range(1, 7):
                 q_elem = soup.find(class_=f"q{i}")
                 if q_elem:
-                    pre_survey[f"q{i}"] = q_elem.get_text(strip=True)
+                    header_row = q_elem.find_parent('tr')
+                    if header_row:
+                        next_row = header_row.find_next_sibling('tr')
+                        if next_row:
+                            content_cell = next_row.find('td')
+                            if content_cell:
+                                pre_survey[f"q{i}"] = content_cell.get_text(strip=True)
             if pre_survey:
                 data["pre_survey"] = pre_survey
             
-            # 신청 내용 파싱
+            # 신청 내용 파싱 - 헤더 행 다음 행에서 실제 내용 추출
+            # class="pain" 등의 헤더 셀은 보통 비어있고, 다음 <tr>의 <td>에 내용이 있음
+            
+            # 현업업무 (class="pain")
             pain_elem = soup.find(class_="pain")
             if pain_elem:
-                data["current_work"] = pain_elem.get_text(strip=True)
+                # 헤더 행(<tr>)의 다음 형제 행에서 내용 추출
+                header_row = pain_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["current_work"] = content_cell.get_text(strip=True)
             
-            # Pain point는 별도 섹션에서 추출 (class 없을 수 있음)
-            # 헤더 텍스트로 찾기
-            for heading in soup.find_all(['h2', 'h3', 'strong']):
-                heading_text = heading.get_text(strip=True)
-                if 'Pain' in heading_text or 'pain' in heading_text:
-                    # 다음 요소에서 텍스트 추출
-                    next_elem = heading.find_next(['p', 'div'])
-                    if next_elem:
-                        data["pain_point"] = next_elem.get_text(strip=True)
+            # Pain Point (class="pain_point" 또는 별도 섹션)
+            pain_point_elem = soup.find(class_="pain_point")
+            if pain_point_elem:
+                header_row = pain_point_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["pain_point"] = content_cell.get_text(strip=True)
             
+            # 개선아이디어 (class="improve")
             improve_elem = soup.find(class_="improve")
             if improve_elem:
-                data["improvement_idea"] = improve_elem.get_text(strip=True)
+                header_row = improve_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["improvement_idea"] = content_cell.get_text(strip=True)
             
+            # 기대효과 (class="effect")
             effect_elem = soup.find(class_="effect")
             if effect_elem:
-                data["expected_effect"] = effect_elem.get_text(strip=True)
+                header_row = effect_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["expected_effect"] = content_cell.get_text(strip=True)
             
+            # AI팀에 바라는 점 (class="hope")
             hope_elem = soup.find(class_="hope")
             if hope_elem:
-                data["hope"] = hope_elem.get_text(strip=True)
+                header_row = hope_elem.find_parent('tr')
+                if header_row:
+                    next_row = header_row.find_next_sibling('tr')
+                    if next_row:
+                        content_cell = next_row.find('td')
+                        if content_cell:
+                            data["hope"] = content_cell.get_text(strip=True)
             
             # 기술 역량 파싱 (중첩 테이블)
             tech_capabilities = []
