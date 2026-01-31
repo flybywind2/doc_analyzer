@@ -7,6 +7,11 @@
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-gray-900">지원서 상세 정보</h2>
         <div class="flex space-x-2">
+            {% if user.role == 'admin' %}
+            <button onclick="showEditModal()" class="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-pen-to-square mr-2"></i> 기본정보 수정
+            </button>
+            {% endif %}
             <button onclick="history.back()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                 <i class="fa-solid fa-arrow-left mr-2"></i> 목록으로
             </button>
@@ -26,6 +31,60 @@
                 <p class="text-gray-500 text-lg">데이터를 불러오는 중...</p>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- 수정 모달 -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-lg font-bold text-gray-900">기본 정보 수정</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-500">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="edit-form" class="mt-4" onsubmit="handleUpdate(event)">
+            <div class="space-y-4">
+                <div>
+                    <label for="edit-subject" class="block text-sm font-medium text-gray-700 mb-1">과제명 *</label>
+                    <input type="text" id="edit-subject" required class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-division" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
+                        <input type="text" id="edit-division" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                    
+                    <div>
+                        <label for="edit-participant-count" class="block text-sm font-medium text-gray-700 mb-1">참여 인원</label>
+                        <input type="number" id="edit-participant-count" min="1" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-representative-name" class="block text-sm font-medium text-gray-700 mb-1">대표자 이름</label>
+                        <input type="text" id="edit-representative-name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                    
+                    <div>
+                        <label for="edit-representative-knox-id" class="block text-sm font-medium text-gray-700 mb-1">대표자 Knox ID</label>
+                        <input type="text" id="edit-representative-knox-id" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    취소
+                </button>
+                <button type="submit" id="submit-btn" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    저장
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -545,6 +604,76 @@ async function submitEvaluation(event) {
     }
 }
 
+// 수정 모달 표시
+function showEditModal() {
+    if (!currentApplication) {
+        alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+    
+    // 현재 값으로 폼 채우기
+    document.getElementById('edit-subject').value = currentApplication.subject || '';
+    document.getElementById('edit-division').value = currentApplication.division || '';
+    document.getElementById('edit-participant-count').value = currentApplication.participant_count || '';
+    document.getElementById('edit-representative-name').value = currentApplication.representative_name || '';
+    document.getElementById('edit-representative-knox-id').value = currentApplication.representative_knox_id || '';
+    
+    // 모달 표시
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+// 수정 모달 닫기
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+// 수정 저장
+async function handleUpdate(event) {
+    event.preventDefault();
+    
+    const submitBtn = document.getElementById('submit-btn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 저장 중...';
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const updateData = {
+            subject: document.getElementById('edit-subject').value,
+            division: document.getElementById('edit-division').value || null,
+            participant_count: parseInt(document.getElementById('edit-participant-count').value) || null,
+            representative_name: document.getElementById('edit-representative-name').value || null,
+            representative_knox_id: document.getElementById('edit-representative-knox-id').value || null
+        };
+        
+        const response = await fetch(`/api/applications/${applicationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            alert('✅ 지원서 정보가 수정되었습니다.');
+            closeEditModal();
+            // 페이지 새로고침
+            await loadApplicationDetail();
+        } else {
+            const error = await response.json();
+            alert(`❌ 수정 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error updating application:', error);
+        alert('❌ 수정 중 오류가 발생했습니다.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+// 삭제
 async function deleteApplication() {
     if (!confirm('정말 이 지원서를 삭제하시겠습니까? 복구할 수 없습니다.')) {
         return;

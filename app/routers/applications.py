@@ -123,6 +123,45 @@ async def get_application(
     return app_data
 
 
+@router.put("/{application_id}")
+async def update_application(
+    application_id: int,
+    update_data: ApplicationUpdate,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update application basic information (admin only)
+    
+    Only administrators can update application data
+    """
+    app = db.query(Application).filter(Application.id == application_id).first()
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found"
+        )
+    
+    # Update fields if provided
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    for field, value in update_dict.items():
+        setattr(app, field, value)
+    
+    app.updated_at = datetime.utcnow()
+    
+    try:
+        db.commit()
+        db.refresh(app)
+        return {"message": "Application updated successfully", "id": app.id}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update application: {str(e)}"
+        )
+
+
 @router.post("/{application_id}/evaluate")
 async def submit_user_evaluation(
     application_id: int,
