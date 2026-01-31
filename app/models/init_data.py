@@ -33,17 +33,17 @@ def init_default_data(db: Session):
     # Initialize AI Categories
     categories_data = [
         {"name": "LLM", "description": "텍스트 생성, 요약, 번역, 챗봇", 
-         "keywords": '["텍스트 생성", "요약", "번역", "챗봇", "GPT", "NLP", "자연어처리"]', "display_order": 1},
+         "keywords": '["텍스트 생성", "요약", "번역", "챗봇", "GPT", "NLP", "자연어처리", "언어모델", "생성형AI", "대화", "질의응답", "문서생성", "프롬프트"]', "display_order": 1},
         {"name": "RAG", "description": "문서 검색, 지식베이스, Q&A", 
-         "keywords": '["문서 검색", "지식베이스", "Q&A", "벡터DB", "임베딩", "검색증강"]', "display_order": 2},
+         "keywords": '["문서 검색", "지식베이스", "Q&A", "벡터DB", "임베딩", "검색증강", "정보검색", "문서관리", "지식관리", "벡터", "유사도검색"]', "display_order": 2},
         {"name": "ML", "description": "예측, 분류, 회귀, 이상탐지", 
-         "keywords": '["예측", "분류", "회귀", "이상탐지", "추천", "XGBoost", "머신러닝"]', "display_order": 3},
+         "keywords": '["예측", "분류", "회귀", "이상탐지", "추천", "XGBoost", "머신러닝", "학습", "모델", "알고리즘", "패턴", "데이터분석", "분석모델"]', "display_order": 3},
         {"name": "DL", "description": "이미지, OCR, 음성인식, 객체탐지", 
-         "keywords": '["이미지", "OCR", "음성인식", "객체탐지", "CNN", "딥러닝"]', "display_order": 4},
+         "keywords": '["이미지", "OCR", "음성인식", "객체탐지", "CNN", "딥러닝", "영상처리", "비전", "얼굴인식", "문자인식", "사진", "비디오"]', "display_order": 4},
         {"name": "AI Agent", "description": "자동화, 워크플로우, 멀티스텝", 
-         "keywords": '["자동화", "워크플로우", "멀티스텝", "RPA", "에이전트"]', "display_order": 5},
+         "keywords": '["자동화", "워크플로우", "멀티스텝", "RPA", "에이전트", "자율", "프로세스자동화", "업무자동화", "지능형", "협업", "작업흐름"]', "display_order": 5},
         {"name": "데이터분석", "description": "인사이트, 시각화, BI", 
-         "keywords": '["인사이트", "시각화", "BI", "대시보드", "분석", "통계"]', "display_order": 6},
+         "keywords": '["인사이트", "시각화", "BI", "대시보드", "분석", "통계", "리포트", "차트", "그래프", "데이터", "지표", "트렌드", "경향"]', "display_order": 6},
     ]
     
     existing_categories = db.query(AICategory).count()

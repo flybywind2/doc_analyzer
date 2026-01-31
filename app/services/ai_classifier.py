@@ -119,8 +119,21 @@ class AIClassifier:
                 print(f"✅ Classified application {application.id}: {application.ai_category_primary}")
                 return True
             else:
+                # Fallback: 키워드 매칭이 없는 경우, "데이터분석"을 기본으로 설정
                 print(f"⚠️  No categories matched for application {application.id}")
-                return False
+                print(f"   ℹ️  Setting default category '데이터분석' as fallback")
+                
+                # 기본 카테고리 설정
+                application.ai_categories = [{
+                    "category": "데이터분석",
+                    "priority": 1,
+                    "confidence": 0.0,
+                    "keywords_matched": 0,
+                    "note": "No keyword matches - default category assigned"
+                }]
+                application.ai_category_primary = "데이터분석"
+                db.commit()
+                return True
                 
         except Exception as e:
             print(f"❌ Error classifying application {application.id}: {e}")
