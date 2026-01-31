@@ -6,6 +6,8 @@ import time
 import json
 import requests
 import urllib3
+from collections import deque
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -17,6 +19,44 @@ from app.models.department import Department
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class RateLimiter:
+    """Rate limiter for API calls - 10 calls per minute"""
+    
+    def __init__(self, max_calls: int = 10, time_window: int = 60):
+        """
+        Initialize rate limiter
+        
+        Args:
+            max_calls: Maximum number of calls allowed in time window (default: 10)
+            time_window: Time window in seconds (default: 60)
+        """
+        self.max_calls = max_calls
+        self.time_window = time_window
+        self.calls = deque()
+    
+    def wait_if_needed(self):
+        """Wait if rate limit is exceeded"""
+        now = datetime.now()
+        
+        # Remove calls outside the time window
+        while self.calls and self.calls[0] < now - timedelta(seconds=self.time_window):
+            self.calls.popleft()
+        
+        # If at limit, wait until oldest call expires
+        if len(self.calls) >= self.max_calls:
+            sleep_time = (self.calls[0] + timedelta(seconds=self.time_window) - now).total_seconds()
+            if sleep_time > 0:
+                print(f"⏳ Rate limit reached. Waiting {sleep_time:.1f} seconds...")
+                time.sleep(sleep_time + 0.1)  # Add 0.1s buffer
+                # Clean up expired calls after waiting
+                now = datetime.now()
+                while self.calls and self.calls[0] < now - timedelta(seconds=self.time_window):
+                    self.calls.popleft()
+        
+        # Record this call
+        self.calls.append(datetime.now())
+
+
 class ConfluenceParser:
     """Confluence API client and HTML parser"""
     
@@ -25,6 +65,8 @@ class ConfluenceParser:
         self.auth = (settings.confluence_username, settings.confluence_password)
         self.space_key = settings.confluence_space_key
         self.parent_page_id = settings.confluence_parent_page_id
+        # Rate limiter: 10 calls per minute
+        self.rate_limiter = RateLimiter(max_calls=10, time_window=60)
         
     def get_child_pages(self) -> List[Dict[str, str]]:
         """
@@ -36,23 +78,44 @@ class ConfluenceParser:
         url = f"{self.base_url}/rest/api/content/{self.parent_page_id}/child/page"
         params = {"limit": 500, "expand": "version"}
         
-        try:
-            response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
-            response.raise_for_status()
-            data = response.json()
-            
-            pages = []
-            for page in data.get("results", []):
-                pages.append({
-                    "id": page["id"],
-                    "title": page["title"],
-                    "url": f"{self.base_url}/pages/viewpage.action?pageId={page['id']}"
-                })
-            
-            return pages
-        except Exception as e:
-            print(f"❌ Error fetching child pages: {e}")
-            return []
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Apply rate limiting
+                self.rate_limiter.wait_if_needed()
+                
+                response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
+                
+                # Handle 429 Too Many Requests
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get('Retry-After', 60))
+                    print(f"⚠️  429 Too Many Requests. Waiting {retry_after} seconds... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_after)
+                    continue
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                pages = []
+                for page in data.get("results", []):
+                    pages.append({
+                        "id": page["id"],
+                        "title": page["title"],
+                        "url": f"{self.base_url}/pages/viewpage.action?pageId={page['id']}"
+                    })
+                
+                return pages
+            except requests.exceptions.HTTPError as e:
+                if attempt < max_retries - 1 and e.response.status_code == 429:
+                    continue
+                print(f"❌ HTTP Error fetching child pages: {e}")
+                return []
+            except Exception as e:
+                print(f"❌ Error fetching child pages: {e}")
+                return []
+        
+        print(f"❌ Failed to fetch child pages after {max_retries} attempts")
+        return []
     
     def get_page_content(self, page_id: str) -> Optional[str]:
         """
@@ -67,14 +130,35 @@ class ConfluenceParser:
         url = f"{self.base_url}/rest/api/content/{page_id}"
         params = {"expand": "body.view"}
         
-        try:
-            response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("body", {}).get("view", {}).get("value")
-        except Exception as e:
-            print(f"❌ Error fetching page {page_id}: {e}")
-            return None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Apply rate limiting
+                self.rate_limiter.wait_if_needed()
+                
+                response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
+                
+                # Handle 429 Too Many Requests
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get('Retry-After', 60))
+                    print(f"⚠️  429 Too Many Requests for page {page_id}. Waiting {retry_after} seconds... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_after)
+                    continue
+                
+                response.raise_for_status()
+                data = response.json()
+                return data.get("body", {}).get("view", {}).get("value")
+            except requests.exceptions.HTTPError as e:
+                if attempt < max_retries - 1 and e.response.status_code == 429:
+                    continue
+                print(f"❌ HTTP Error fetching page {page_id}: {e}")
+                return None
+            except Exception as e:
+                print(f"❌ Error fetching page {page_id}: {e}")
+                return None
+        
+        print(f"❌ Failed to fetch page {page_id} after {max_retries} attempts")
+        return None
     
     def parse_application(self, html_content: str, page_id: str, page_url: str) -> Dict[str, Any]:
         """
@@ -274,9 +358,6 @@ class ConfluenceParser:
                     print(f"✅ Created new application: {page_id}")
                 
                 db.commit()
-                
-                # Rate limiting
-                time.sleep(0.5)
                 
             except Exception as e:
                 result["error_count"] += 1
