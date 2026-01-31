@@ -11,6 +11,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from app.config import settings
 from app.models.application import Application
 from app.models.evaluation import EvaluationCriteria, EvaluationHistory
+from app.services.rate_limiter import RateLimiter
 
 
 class LLMEvaluator:
@@ -31,6 +32,8 @@ class LLMEvaluator:
                 "Completion-Msg-Id": str(uuid.uuid4()),
             },
         )
+        # Rate limiter: 20 calls per minute
+        self.rate_limiter = RateLimiter(max_calls=20, time_window=60)
     
     def build_evaluation_prompt(
         self, 
@@ -177,6 +180,9 @@ class LLMEvaluator:
         Raises:
             Exception: If evaluation fails after retries
         """
+        # Apply rate limiting before LLM call
+        self.rate_limiter.wait_if_needed()
+        
         response = self.llm.invoke(prompt)
         content = response.content
         

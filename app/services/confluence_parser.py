@@ -6,55 +6,16 @@ import time
 import json
 import requests
 import urllib3
-from collections import deque
-from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.application import Application
 from app.models.department import Department
+from app.services.rate_limiter import RateLimiter
 
 # Disable SSL warnings when verify=False is used
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-
-class RateLimiter:
-    """Rate limiter for API calls - 10 calls per minute"""
-    
-    def __init__(self, max_calls: int = 10, time_window: int = 60):
-        """
-        Initialize rate limiter
-        
-        Args:
-            max_calls: Maximum number of calls allowed in time window (default: 10)
-            time_window: Time window in seconds (default: 60)
-        """
-        self.max_calls = max_calls
-        self.time_window = time_window
-        self.calls = deque()
-    
-    def wait_if_needed(self):
-        """Wait if rate limit is exceeded"""
-        now = datetime.now()
-        
-        # Remove calls outside the time window
-        while self.calls and self.calls[0] < now - timedelta(seconds=self.time_window):
-            self.calls.popleft()
-        
-        # If at limit, wait until oldest call expires
-        if len(self.calls) >= self.max_calls:
-            sleep_time = (self.calls[0] + timedelta(seconds=self.time_window) - now).total_seconds()
-            if sleep_time > 0:
-                print(f"⏳ Rate limit reached. Waiting {sleep_time:.1f} seconds...")
-                time.sleep(sleep_time + 0.1)  # Add 0.1s buffer
-                # Clean up expired calls after waiting
-                now = datetime.now()
-                while self.calls and self.calls[0] < now - timedelta(seconds=self.time_window):
-                    self.calls.popleft()
-        
-        # Record this call
-        self.calls.append(datetime.now())
 
 
 class ConfluenceParser:

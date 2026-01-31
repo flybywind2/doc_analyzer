@@ -6,6 +6,7 @@ from app.services.auth import (
     create_access_token, decode_token, get_current_user,
     get_current_active_admin, update_last_login
 )
+from app.services.rate_limiter import RateLimiter
 from app.services.confluence_parser import confluence_parser
 from app.services.llm_evaluator import llm_evaluator
 from app.services.ai_classifier import ai_classifier
@@ -17,6 +18,7 @@ __all__ = [
     "create_access_token", "decode_token", "get_current_user",
     "get_current_active_admin", "update_last_login",
     # Services
+    "RateLimiter",
     "confluence_parser",
     "llm_evaluator",
     "ai_classifier",
