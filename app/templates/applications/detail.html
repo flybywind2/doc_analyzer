@@ -8,6 +8,9 @@
         <h2 class="text-2xl font-bold text-gray-900">지원서 상세 정보</h2>
         <div class="flex space-x-2">
             {% if user.role == 'admin' %}
+            <button onclick="runAIEvaluation()" class="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md shadow-sm text-sm font-medium text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                <i class="fa-solid fa-robot mr-2"></i> AI 재평가
+            </button>
             <button onclick="showEditModal()" class="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                 <i class="fa-solid fa-pen-to-square mr-2"></i> 기본정보 수정
             </button>
@@ -670,6 +673,62 @@ async function handleUpdate(event) {
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
+    }
+}
+
+// AI 재평가 실행
+async function runAIEvaluation() {
+    if (!currentApplication) {
+        alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+    
+    if (!confirm('이 지원서에 대해 AI 재평가를 실행하시겠습니까?\n\n⚠️ 기존 AI 평가 결과가 새로운 결과로 대체됩니다.\n⚠️ LLM API 비용이 발생합니다.')) {
+        return;
+    }
+    
+    // 버튼 찾기 및 비활성화
+    const buttons = document.querySelectorAll('button');
+    let aiEvalBtn = null;
+    buttons.forEach(btn => {
+        if (btn.textContent.includes('AI 재평가')) {
+            aiEvalBtn = btn;
+        }
+    });
+    
+    if (aiEvalBtn) {
+        const originalText = aiEvalBtn.innerHTML;
+        aiEvalBtn.disabled = true;
+        aiEvalBtn.innerHTML = '<i class="fa-solid fa-robot fa-bounce mr-2"></i> AI 평가 중...';
+        
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`/api/evaluations/${applicationId}/re-evaluate`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert('✅ AI 재평가가 완료되었습니다!\n\n페이지가 새로고침되어 새로운 평가 결과를 표시합니다.');
+                // 페이지 새로고침
+                await loadApplicationDetail();
+            } else {
+                const error = await response.json();
+                alert(`❌ AI 재평가 실패: ${error.detail}`);
+            }
+        } catch (error) {
+            console.error('Error running AI evaluation:', error);
+            alert('❌ AI 재평가 중 오류가 발생했습니다.\n\n네트워크 연결이나 LLM API 상태를 확인해주세요.');
+        } finally {
+            if (aiEvalBtn) {
+                aiEvalBtn.disabled = false;
+                aiEvalBtn.innerHTML = originalText;
+            }
+        }
     }
 }
 
