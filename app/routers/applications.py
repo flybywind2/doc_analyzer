@@ -10,7 +10,7 @@ import csv
 import io
 from app.database import get_db
 from app.schemas.application import (
-    ApplicationResponse, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest
+    ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest
 )
 from app.services.auth import get_current_user, get_current_active_admin
 from app.services.confluence_parser import confluence_parser
