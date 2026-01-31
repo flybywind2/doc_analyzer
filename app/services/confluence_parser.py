@@ -5,12 +5,16 @@ import re
 import time
 import json
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.application import Application
 from app.models.department import Department
+
+# Disable SSL warnings when verify=False is used
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class ConfluenceParser:
@@ -33,7 +37,7 @@ class ConfluenceParser:
         params = {"limit": 500, "expand": "version"}
         
         try:
-            response = requests.get(url, auth=self.auth, params=params, timeout=30)
+            response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
             response.raise_for_status()
             data = response.json()
             
@@ -64,7 +68,7 @@ class ConfluenceParser:
         params = {"expand": "body.view"}
         
         try:
-            response = requests.get(url, auth=self.auth, params=params, timeout=30)
+            response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
             response.raise_for_status()
             data = response.json()
             return data.get("body", {}).get("view", {}).get("value")
