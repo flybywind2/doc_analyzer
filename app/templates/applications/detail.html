@@ -190,6 +190,19 @@ async function loadApplicationDetail() {
                             <span class="${getStatusClass(app.status)}">${getStatusText(app.status)}</span>
                         </div>
                     </div>
+                    ${app.confluence_page_url ? `
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">원본 문서</label>
+                        <div>
+                            <a href="${app.confluence_page_url}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm">
+                                <i class="fa-brands fa-confluence mr-2"></i>
+                                Confluence에서 보기
+                                <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
             

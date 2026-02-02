@@ -100,6 +100,8 @@ class ConfluenceParser:
     
     def __init__(self):
         self.base_url = settings.confluence_base_url.rstrip('/')
+        # 링크용 URL (설정되지 않았으면 base_url 사용)
+        self.link_base_url = (settings.confluence_link_base_url or settings.confluence_base_url).rstrip('/')
         self.auth = (settings.confluence_username, settings.confluence_password)
         self.space_key = settings.confluence_space_key
         self.parent_page_id = settings.confluence_parent_page_id
@@ -139,9 +141,9 @@ class ConfluenceParser:
                     pages.append({
                         "id": page["id"],
                         "title": page["title"],
-                        "url": f"{self.base_url}/pages/viewpage.action?pageId={page['id']}"
+                        "url": f"{self.link_base_url}/pages/viewpage.action?pageId={page['id']}"
                     })
-                
+
                 return pages
             except requests.exceptions.HTTPError as e:
                 if attempt < max_retries - 1 and e.response.status_code == 429:
@@ -585,8 +587,8 @@ class ConfluenceParser:
                 result["error"] = "Application already exists. Use force_update=true to update."
                 return result
 
-            # Get page URL (construct from page_id)
-            page_url = f"{self.base_url}/wiki/spaces/{os.getenv('CONFLUENCE_SPACE_KEY', '')}/pages/{page_id}"
+            # Get page URL (construct from page_id) - 사용자 접근용 링크
+            page_url = f"{self.link_base_url}/pages/viewpage.action?pageId={page_id}"
 
             # Get and parse content
             html_content = self.get_page_content(page_id)
