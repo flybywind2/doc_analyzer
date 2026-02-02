@@ -108,3 +108,10 @@ class ConfluenceSyncRequest(BaseModel):
     """Schema for Confluence sync request"""
     batch_id: Optional[str] = None
     force_update: bool = False  # 기존 데이터도 업데이트할지 여부
+
+
+class ConfluenceSingleSyncRequest(BaseModel):
+    """Schema for single page Confluence sync request"""
+    page_id: str = Field(..., description="Confluence page ID to sync")
+    batch_id: Optional[str] = None
+    force_update: bool = True  # 개별 동기화는 기본적으로 업데이트 허용

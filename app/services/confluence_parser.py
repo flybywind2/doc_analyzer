@@ -475,6 +475,87 @@ class ConfluenceParser:
         
         return result
 
+    def sync_single_application(self, db: Session, page_id: str, batch_id: Optional[str] = None, force_update: bool = True) -> Dict[str, Any]:
+        """
+        Sync a single application from Confluence by page ID
+
+        Args:
+            db: Database session
+            page_id: Confluence page ID to sync
+            batch_id: Batch identifier
+            force_update: Update existing application (default: True)
+
+        Returns:
+            Sync result with application data
+        """
+        result = {
+            "success": False,
+            "action": None,  # "created", "updated", or "error"
+            "application_id": None,
+            "page_id": page_id,
+            "error": None
+        }
+
+        try:
+            # Check if already exists
+            existing_app = db.query(Application).filter(
+                Application.confluence_page_id == page_id
+            ).first()
+
+            if existing_app and not force_update:
+                result["error"] = "Application already exists. Use force_update=true to update."
+                return result
+
+            # Get page URL (construct from page_id)
+            page_url = f"{self.base_url}/wiki/spaces/{os.getenv('CONFLUENCE_SPACE_KEY', '')}/pages/{page_id}"
+
+            # Get and parse content
+            html_content = self.get_page_content(page_id)
+            if not html_content:
+                result["error"] = f"Failed to fetch page content for {page_id}"
+                return result
+
+            parsed_data = self.parse_application(html_content, page_id, page_url)
+
+            # Resolve department by division text
+            if parsed_data.get("division"):
+                dept = db.query(Department).filter(
+                    Department.name.like(f"%{parsed_data['division']}%")
+                ).first()
+                if dept:
+                    parsed_data["department_id"] = dept.id
+
+            if batch_id:
+                parsed_data["batch_id"] = batch_id
+
+            if existing_app:
+                # Update existing
+                for key, value in parsed_data.items():
+                    setattr(existing_app, key, value)
+                result["action"] = "updated"
+                result["application_id"] = existing_app.id
+                result["success"] = True
+                print(f"✅ Updated application: {page_id} (ID: {existing_app.id})")
+            else:
+                # Create new
+                new_app = Application(**parsed_data)
+                db.add(new_app)
+                db.flush()  # Get the ID before commit
+                result["action"] = "created"
+                result["application_id"] = new_app.id
+                result["success"] = True
+                print(f"✅ Created new application: {page_id} (ID: {new_app.id})")
+
+            db.commit()
+
+        except Exception as e:
+            result["error"] = str(e)
+            error_msg = f"Error syncing page {page_id}: {str(e)}"
+            print(f"❌ {error_msg}")
+            db.rollback()
+
+        return result
+
 
 # Singleton instance
 confluence_parser = ConfluenceParser()

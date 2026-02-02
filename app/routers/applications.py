@@ -10,7 +10,7 @@ import csv
 import io
 from app.database import get_db
 from app.schemas.application import (
-    ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest
+    ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest, ConfluenceSingleSyncRequest
 )
 from app.services.auth import get_current_user, get_current_active_admin
 from app.services.confluence_parser import confluence_parser
@@ -296,9 +296,37 @@ async def sync_confluence_data(
         batch_id=sync_request.batch_id,
         force_update=sync_request.force_update
     )
-    
+
     return {
         "message": "Sync completed",
+        "result": result
+    }
+
+
+@router.post("/sync/single")
+async def sync_single_confluence_page(
+    sync_request: ConfluenceSingleSyncRequest,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Sync a single application from Confluence by page ID (admin only)
+    """
+    result = confluence_parser.sync_single_application(
+        db=db,
+        page_id=sync_request.page_id,
+        batch_id=sync_request.batch_id,
+        force_update=sync_request.force_update
+    )
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["error"]
+        )
+
+    return {
+        "message": f"Single page sync {result['action']}",
         "result": result
     }
 
