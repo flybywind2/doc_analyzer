@@ -34,7 +34,74 @@ class LLMEvaluator:
         )
         # Rate limiter: 20 calls per minute
         self.rate_limiter = RateLimiter(max_calls=20, time_window=60)
-    
+
+        # Criteria name to key mapping (한글 -> 영문)
+        self.criteria_key_map = {
+            "혁신성": "innovation",
+            "실현가능성": "feasibility",
+            "효과성": "impact",
+            "명확성": "clarity"
+        }
+
+    def _build_criteria_guide(self, criteria_list: List[EvaluationCriteria]) -> str:
+        """
+        Build evaluation criteria guide from database criteria
+
+        Args:
+            criteria_list: List of evaluation criteria from DB
+
+        Returns:
+            Formatted criteria guide string
+        """
+        if not criteria_list:
+            # Fallback to default if no criteria
+            return """
+**혁신성 (Innovation)**: AI 기술의 창의성과 새로움 (1-5점)
+**실현가능성 (Feasibility)**: 기술적 구현 난이도와 팀 역량 (1-5점)
+**효과성 (Impact)**: 조직에 미치는 경영 효과 (1-5점)
+**명확성 (Clarity)**: 문제 정의와 해결 방안의 구체성 (1-5점)
+""".strip()
+
+        guide_parts = []
+        for criteria in criteria_list:
+            key = self.criteria_key_map.get(criteria.name, criteria.name.lower())
+            guide_parts.append(f"""
+**{criteria.name} ({key.capitalize()})**: {criteria.description}
+
+{criteria.evaluation_guide}
+""".strip())
+
+        return "\n\n".join(guide_parts)
+
+    def _build_json_format_example(self, criteria_list: List[EvaluationCriteria]) -> str:
+        """
+        Build JSON format example from database criteria
+
+        Args:
+            criteria_list: List of evaluation criteria from DB
+
+        Returns:
+            Formatted JSON example string
+        """
+        if not criteria_list:
+            # Fallback to default
+            criteria_list = [
+                type('obj', (object,), {'name': '혁신성', 'description': 'AI 기술의 창의성과 새로움'})(),
+                type('obj', (object,), {'name': '실현가능성', 'description': '기술적 구현 난이도와 팀 역량'})(),
+                type('obj', (object,), {'name': '효과성', 'description': '조직에 미치는 경영 효과'})(),
+                type('obj', (object,), {'name': '명확성', 'description': '문제 정의와 해결 방안의 구체성'})()
+            ]
+
+        json_parts = []
+        for criteria in criteria_list:
+            key = self.criteria_key_map.get(criteria.name, criteria.name.lower())
+            json_parts.append(f'''    "{key}": {{
+      "score": 1-5 사이의 정수,
+      "rationale": "{criteria.name} 평가 근거 (2-3문장, 지원서 기반)"
+    }}''')
+
+        return ",\n".join(json_parts)
+
     def build_evaluation_prompt(
         self, 
         application: Application, 
@@ -98,9 +165,9 @@ class LLMEvaluator:
 
 ---
 
-## 요약 요청사항
+## 평가 요청사항
 
-지원서 내용을 바탕으로 다음 4가지만 간결하게 요약하세요:
+지원서 내용을 바탕으로 다음을 요약하고 평가하세요:
 
 ### 1. AI 기술 분류
 지원서에서 언급된 AI 기술을 다음 중 **하나만** 선택하세요:
@@ -128,6 +195,11 @@ class LLMEvaluator:
 3. 해결 방안 (1줄)
 4. 기대 효과 (1줄)
 5. 구현 계획 (1줄)
+
+### 5. 평가 기준별 점수 및 근거 (5점 척도)
+다음 기준으로 지원서를 평가하고, 각 기준마다 1-5점과 2-3문장의 근거를 제시하세요:
+
+{self._build_criteria_guide(criteria_list)}
 """
         
         prompt = f"""{system_prompt}
@@ -141,24 +213,27 @@ class LLMEvaluator:
 
 {{
   "ai_category": "예측" 또는 "분류" 또는 "챗봇" 또는 "에이전트" 또는 "최적화" 또는 "강화학습",
-  "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약 (지원서 내용 기반)",
-  "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가 (지원서 내용 기반)",
+  "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약",
+  "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가",
   "five_line_summary": [
     "1. 과제 목적",
     "2. 현재 문제",
     "3. 해결 방안",
     "4. 기대 효과",
     "5. 구현 계획"
-  ]
+  ],
+  "evaluation_scores": {{
+{self._build_json_format_example(criteria_list)}
+  }}
 }}
 
 **중요 규칙:**
 1. 유효한 JSON 형식 필수
-2. ai_category는 6개 선택지 중 하나만 (예측/분류/챗봇/에이전트/최적화/강화학습)
-3. 지원서에 작성된 내용만 사용 (할루시네이션 금지)
-4. 추측이나 과장 금지 - 사실만 기반
-5. {department_info} 조직 특성 반영
-6. 간결하고 명확하게 (요약의 목적)
+2. ai_category는 6개 선택지 중 하나만
+3. evaluation_scores의 각 score는 1-5 정수
+4. 모든 rationale은 지원서에 작성된 내용만 사용 (할루시네이션 금지)
+5. 추측이나 과장 금지 - 사실만 기반
+6. {department_info} 조직 특성 반영
 """
         return prompt
     
@@ -266,33 +341,58 @@ class LLMEvaluator:
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
             result = self.evaluate_with_llm(prompt)
             
-            # Extract simplified format results
+            # Extract results
             ai_category = result.get("ai_category", "분류")
             business_impact = result.get("business_impact", "")
             technical_feasibility = result.get("technical_feasibility", "")
             five_line_summary = result.get("five_line_summary", [])
-            
+            evaluation_scores = result.get("evaluation_scores", {})
+
             # Build AI categories for compatibility
             ai_categories = [{
                 "category": ai_category,
                 "description": "지원서 기반 AI 요약"
             }]
-            
-            # Build evaluation detail - simplified 4-item format
+
+            # Build evaluation detail with scores
             evaluation_detail = {
                 "ai_category": ai_category,
                 "business_impact": business_impact,
                 "technical_feasibility": technical_feasibility,
-                "five_line_summary": five_line_summary
+                "five_line_summary": five_line_summary,
+                "evaluation_scores": evaluation_scores
             }
-            
-            # Simple grade based on feasibility tone
-            if "어렵" in technical_feasibility or "불가능" in technical_feasibility:
-                overall_grade = "C"
-            elif "가능" in technical_feasibility and "충분" in technical_feasibility:
-                overall_grade = "A"
+
+            # Calculate overall grade from evaluation scores
+            if evaluation_scores:
+                scores = []
+                for criterion in ["innovation", "feasibility", "impact", "clarity"]:
+                    if criterion in evaluation_scores and "score" in evaluation_scores[criterion]:
+                        scores.append(evaluation_scores[criterion]["score"])
+
+                if scores:
+                    avg_score = sum(scores) / len(scores)
+                    # Convert average to grade (S/A/B/C/D)
+                    if avg_score >= 4.5:
+                        overall_grade = "S"
+                    elif avg_score >= 3.5:
+                        overall_grade = "A"
+                    elif avg_score >= 2.5:
+                        overall_grade = "B"
+                    elif avg_score >= 1.5:
+                        overall_grade = "C"
+                    else:
+                        overall_grade = "D"
+                else:
+                    overall_grade = "B"  # Default
             else:
-                overall_grade = "B"
+                # Fallback to old simple logic if scores not provided
+                if "어렵" in technical_feasibility or "불가능" in technical_feasibility:
+                    overall_grade = "C"
+                elif "가능" in technical_feasibility and "충분" in technical_feasibility:
+                    overall_grade = "A"
+                else:
+                    overall_grade = "B"
             
             # Build summary
             summary_parts = []

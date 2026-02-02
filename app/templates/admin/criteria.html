@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}평가 기준 관리{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">평가 기준 관리</h1>
+        <p class="mt-2 text-sm text-gray-600">AI 평가에 사용되는 평가 기준을 관리합니다.</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">평가 기준 목록</h2>
+                <p class="text-sm text-gray-600 mt-1">활성화된 기준이 AI 평가에 사용됩니다</p>
+            </div>
+            <button onclick="showCreateModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium inline-flex items-center">
+                <i class="fa-solid fa-plus mr-2"></i> 새 기준 추가
+            </button>
+        </div>
+
+        <!-- Criteria List -->
+        <div id="criteria-list" class="divide-y divide-gray-200">
+            <div class="flex justify-center py-8">
+                <i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="criteria-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 id="modal-title" class="text-lg font-bold text-gray-900">새 평가 기준 추가</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-500">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <form id="criteria-form" class="mt-4" onsubmit="handleSubmit(event)">
+            <div class="space-y-4">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">기준 이름 *</label>
+                    <input type="text" id="name" required maxlength="100"
+                           class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                           placeholder="예: 혁신성">
+                </div>
+
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">간단한 설명</label>
+                    <input type="text" id="description" maxlength="200"
+                           class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                           placeholder="예: AI 기술의 창의성과 새로움">
+                </div>
+
+                <div>
+                    <label for="evaluation-guide" class="block text-sm font-medium text-gray-700 mb-1">평가 가이드 *</label>
+                    <textarea id="evaluation-guide" required rows="10"
+                              class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                              placeholder="평가 기준 (1-5점):
+- 1점: ...
+- 2점: ...
+...
+
+평가 시 고려사항:
+- ...
+- ..."></textarea>
+                    <p class="text-xs text-gray-500 mt-1">이 내용이 LLM 프롬프트에 포함되어 평가에 사용됩니다.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">가중치</label>
+                        <input type="number" id="weight" step="0.1" min="0" max="10" value="1.0"
+                               class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                        <p class="text-xs text-gray-500 mt-1">현재는 모든 기준이 동일 가중치로 평가됩니다.</p>
+                    </div>
+
+                    <div>
+                        <label for="display-order" class="block text-sm font-medium text-gray-700 mb-1">표시 순서</label>
+                        <input type="number" id="display-order" min="0" value="0"
+                               class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="is-active" checked
+                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                    <label for="is-active" class="ml-2 block text-sm text-gray-900">
+                        활성화 (체크하면 AI 평가에 사용됩니다)
+                    </label>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    취소
+                </button>
+                <button type="submit" id="submit-btn" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let criteria = [];
+let editingId = null;
+
+// 평가 기준 목록 로드
+async function loadCriteria() {
+    const container = document.getElementById('criteria-list');
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/evaluations/criteria?include_inactive=true', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load criteria');
+        }
+
+        criteria = await response.json();
+
+        if (criteria.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fa-solid fa-inbox text-gray-300 text-4xl mb-3"></i>
+                    <p class="text-gray-500">등록된 평가 기준이 없습니다.</p>
+                    <button onclick="showCreateModal()" class="mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <i class="fa-solid fa-plus mr-1"></i> 첫 번째 기준 추가하기
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = criteria.map((c, index) => `
+            <div class="px-6 py-4 hover:bg-gray-50 transition-colors ${!c.is_active ? 'bg-gray-50 opacity-60' : ''}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full ${c.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'} text-sm font-bold">
+                                ${c.display_order}
+                            </span>
+                            <h3 class="text-lg font-semibold text-gray-900">${c.name}</h3>
+                            ${c.is_active ?
+                                '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">활성</span>' :
+                                '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">비활성</span>'
+                            }
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${c.description || '설명 없음'}</p>
+                        <details class="mt-2">
+                            <summary class="text-sm text-blue-600 cursor-pointer hover:text-blue-800">평가 가이드 보기</summary>
+                            <div class="mt-2 pl-4 border-l-2 border-gray-200">
+                                <pre class="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-gray-50 p-3 rounded">${c.evaluation_guide || '가이드 없음'}</pre>
+                            </div>
+                        </details>
+                        <div class="mt-3 flex gap-4 text-xs text-gray-500">
+                            <span><i class="fa-solid fa-weight-hanging mr-1"></i> 가중치: ${c.weight}</span>
+                            <span><i class="fa-solid fa-clock mr-1"></i> 생성: ${new Date(c.created_at).toLocaleDateString('ko-KR')}</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                        <button onclick="editCriteria(${c.id})" class="text-blue-600 hover:text-blue-800 px-3 py-1 text-sm">
+                            <i class="fa-solid fa-edit mr-1"></i> 수정
+                        </button>
+                        <button onclick="toggleActive(${c.id}, ${c.is_active})" class="text-${c.is_active ? 'yellow' : 'green'}-600 hover:text-${c.is_active ? 'yellow' : 'green'}-800 px-3 py-1 text-sm">
+                            <i class="fa-solid fa-${c.is_active ? 'pause' : 'play'}-circle mr-1"></i> ${c.is_active ? '비활성화' : '활성화'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading criteria:', error);
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <i class="fa-solid fa-exclamation-triangle text-red-300 text-4xl mb-3"></i>
+                <p class="text-red-500">평가 기준을 불러오는데 실패했습니다.</p>
+            </div>
+        `;
+    }
+}
+
+// 생성 모달 표시
+function showCreateModal() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = '새 평가 기준 추가';
+    document.getElementById('criteria-form').reset();
+    document.getElementById('is-active').checked = true;
+    document.getElementById('criteria-modal').classList.remove('hidden');
+}
+
+// 수정 모달 표시
+function editCriteria(id) {
+    const c = criteria.find(item => item.id === id);
+    if (!c) return;
+
+    editingId = id;
+    document.getElementById('modal-title').textContent = '평가 기준 수정';
+    document.getElementById('name').value = c.name;
+    document.getElementById('description').value = c.description || '';
+    document.getElementById('evaluation-guide').value = c.evaluation_guide || '';
+    document.getElementById('weight').value = c.weight;
+    document.getElementById('display-order').value = c.display_order;
+    document.getElementById('is-active').checked = c.is_active;
+    document.getElementById('criteria-modal').classList.remove('hidden');
+}
+
+// 모달 닫기
+function closeModal() {
+    document.getElementById('criteria-modal').classList.add('hidden');
+    editingId = null;
+}
+
+// 폼 제출
+async function handleSubmit(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('submit-btn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 저장 중...';
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const data = {
+            name: document.getElementById('name').value,
+            description: document.getElementById('description').value || null,
+            evaluation_guide: document.getElementById('evaluation-guide').value,
+            weight: parseFloat(document.getElementById('weight').value),
+            display_order: parseInt(document.getElementById('display-order').value),
+            is_active: document.getElementById('is-active').checked
+        };
+
+        const url = editingId ? `/api/evaluations/criteria/${editingId}` : '/api/evaluations/criteria';
+        const method = editingId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            alert(`평가 기준이 ${editingId ? '수정' : '추가'}되었습니다.`);
+            closeModal();
+            await loadCriteria();
+        } else {
+            const error = await response.json();
+            alert(`실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('오류가 발생했습니다.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+// 활성화/비활성화 토글
+async function toggleActive(id, currentActive) {
+    if (!confirm(`이 기준을 ${currentActive ? '비활성화' : '활성화'}하시겠습니까?`)) {
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/evaluations/criteria/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_active: !currentActive })
+        });
+
+        if (response.ok) {
+            await loadCriteria();
+        } else {
+            const error = await response.json();
+            alert(`실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('오류가 발생했습니다.');
+    }
+}
+
+// 페이지 로드 시 실행
+loadCriteria();
+</script>
+
+{% endblock %}

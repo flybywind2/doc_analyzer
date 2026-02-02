@@ -139,3 +139,20 @@ async def admin_sync_page(
         "admin/sync.html",
         {"request": request, "user": current_user}
     )
+
+
+@router.get("/admin/criteria", response_class=HTMLResponse)
+async def admin_criteria_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin evaluation criteria management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/criteria.html",
+        {"request": request, "user": current_user}
+    )

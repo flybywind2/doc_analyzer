@@ -2,12 +2,14 @@
 Evaluations router
 """
 from typing import List
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.evaluation import (
     AIEvaluationRequest, AIEvaluationResponse,
-    EvaluationHistoryResponse, EvaluationCriteriaResponse
+    EvaluationHistoryResponse, EvaluationCriteriaResponse,
+    EvaluationCriteriaCreate, EvaluationCriteriaUpdate
 )
 from app.services.auth import get_current_active_admin, get_current_user
 from app.services.llm_evaluator import llm_evaluator
@@ -174,19 +176,121 @@ async def get_evaluation_history(
 @router.get("/criteria", response_model=List[EvaluationCriteriaResponse])
 async def list_evaluation_criteria(
     batch_id: str = None,
+    include_inactive: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     List evaluation criteria
     """
-    query = db.query(EvaluationCriteria).filter(EvaluationCriteria.is_active == True)
-    
+    query = db.query(EvaluationCriteria)
+
+    if not include_inactive:
+        query = query.filter(EvaluationCriteria.is_active == True)
+
     if batch_id:
         query = query.filter(EvaluationCriteria.batch_id == batch_id)
     else:
         query = query.filter(EvaluationCriteria.batch_id.is_(None))
-    
+
     criteria = query.order_by(EvaluationCriteria.display_order).all()
-    
+
     return [EvaluationCriteriaResponse.model_validate(c) for c in criteria]
+
+
+@router.post("/criteria", response_model=EvaluationCriteriaResponse)
+async def create_evaluation_criteria(
+    criteria_data: EvaluationCriteriaCreate,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Create new evaluation criteria (Admin only)
+    """
+    criteria = EvaluationCriteria(**criteria_data.model_dump())
+    db.add(criteria)
+
+    try:
+        db.commit()
+        db.refresh(criteria)
+        return EvaluationCriteriaResponse.model_validate(criteria)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create criteria: {str(e)}"
+        )
+
+
+@router.put("/criteria/{criteria_id}", response_model=EvaluationCriteriaResponse)
+async def update_evaluation_criteria(
+    criteria_id: int,
+    criteria_data: EvaluationCriteriaUpdate,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update evaluation criteria (Admin only)
+    """
+    criteria = db.query(EvaluationCriteria).filter(
+        EvaluationCriteria.id == criteria_id
+    ).first()
+
+    if not criteria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Criteria not found"
+        )
+
+    # Update fields
+    update_data = criteria_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(criteria, field, value)
+
+    criteria.updated_at = datetime.utcnow()
+
+    try:
+        db.commit()
+        db.refresh(criteria)
+        return EvaluationCriteriaResponse.model_validate(criteria)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update criteria: {str(e)}"
+        )
+
+
+@router.delete("/criteria/{criteria_id}")
+async def delete_evaluation_criteria(
+    criteria_id: int,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete evaluation criteria (Admin only)
+    Actually sets is_active to False
+    """
+    criteria = db.query(EvaluationCriteria).filter(
+        EvaluationCriteria.id == criteria_id
+    ).first()
+
+    if not criteria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Criteria not found"
+        )
+
+    # Soft delete
+    criteria.is_active = False
+    criteria.updated_at = datetime.utcnow()
+
+    try:
+        db.commit()
+        return {"message": "Criteria deactivated successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete criteria: {str(e)}"
+        )

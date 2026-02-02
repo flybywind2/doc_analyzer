@@ -57,7 +57,9 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="edit-division" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
-                        <input type="text" id="edit-division" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                        <select id="edit-division" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                            <option value="">사업부 선택</option>
+                        </select>
                     </div>
                     
                     <div>
@@ -96,6 +98,7 @@ const applicationId = {{ application_id }};
 let currentApplication = null;
 let allEvaluations = [];
 let currentUserEvaluation = null;
+let allDepartments = [];
 
 // 애플리케이션 데이터 로드
 async function loadApplicationDetail() {
@@ -212,90 +215,12 @@ async function loadApplicationDetail() {
                     <h3 class="text-lg font-semibold text-blue-900 flex items-center">
                         <i class="fa-solid fa-robot text-blue-600 mr-2"></i> AI 분석 리포트
                     </h3>
-                    ${app.ai_grade ? `<span class="${getGradeBadgeClass(app.ai_grade, true)} text-sm px-3 py-1">AI 등급: ${app.ai_grade}</span>` : ''}
+                    <span id="ai-grade-badge"></span>
                 </div>
-                <div class="p-6">
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fa-solid fa-circle-info text-blue-500"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-blue-700">
-                                    이 리포트는 AI가 지원서 내용을 분석하여 생성한 참고 자료입니다.
-                                </p>
-                            </div>
-                        </div>
+                <div class="p-6" id="ai-report-content">
+                    <div class="flex justify-center py-4">
+                        <i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>
                     </div>
-                    
-                    ${app.ai_grade ? `
-                        <div class="space-y-8">
-                            <!-- 1. AI 기술 분류 -->
-                            <div>
-                                <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">1</span>
-                                    AI 기술 분류
-                                </h4>
-                                <div class="pl-2">
-                                    <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                                        <i class="fa-solid fa-layer-group mr-2"></i>
-                                        ${aiEvaluationDetail.ai_category || app.ai_category_primary || '미분류'}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <!-- 2. 조직 관점의 경영효과 -->
-                            <div>
-                                <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">2</span>
-                                    조직 관점의 경영효과
-                                </h4>
-                                <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
-                                    ${aiEvaluationDetail.business_impact || '정보 없음'}
-                                </div>
-                            </div>
-                            
-                            <!-- 3. AI 관점의 구현 가능성 -->
-                            <div>
-                                <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">3</span>
-                                    AI 관점의 구현 가능성
-                                </h4>
-                                <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
-                                    ${aiEvaluationDetail.technical_feasibility || '정보 없음'}
-                                </div>
-                            </div>
-                            
-                            <!-- 4. 전체 지원서 5줄 요약 -->
-                            <div>
-                                <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">4</span>
-                                    핵심 요약 (5줄)
-                                </h4>
-                                <ul class="space-y-2">
-                                    ${aiEvaluationDetail.five_line_summary && aiEvaluationDetail.five_line_summary.length > 0 ? 
-                                        aiEvaluationDetail.five_line_summary.map(line => `
-                                            <li class="flex items-start bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                                                <i class="fa-solid fa-check text-green-500 mt-1 mr-3 flex-shrink-0"></i>
-                                                <span class="text-gray-700">${line}</span>
-                                            </li>
-                                        `).join('') :
-                                        '<li class="text-gray-500 italic">요약 정보가 없습니다.</li>'}
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                            <p class="text-xs text-gray-500">
-                                <i class="fa-solid fa-robot mr-1"></i> AI 분석은 지속적으로 개선되고 있습니다. 결과에 대한 피드백은 관리자에게 문의해주세요.
-                            </p>
-                        </div>
-                    ` : `
-                        <div class="text-center py-10">
-                            <i class="fa-solid fa-hourglass-half text-gray-300 text-4xl mb-3"></i>
-                            <p class="text-gray-500">아직 AI 평가가 진행되지 않았습니다.</p>
-                        </div>
-                    `}
                 </div>
             </div>
             
@@ -475,16 +400,17 @@ function renderTextWithImages(text) {
     if (!text) return text;
 
     // Markdown 이미지 패턴: ![alt](url)
-    // 정규식으로 찾아서 HTML img 태그로 변환
     const imagePattern = /!\[(.*?)\]\((.*?)\)/g;
 
-    return text.replace(imagePattern, (match, alt, url) => {
+    const result = text.replace(imagePattern, (match, alt, url) => {
         // HTML 이스케이프
         const safeAlt = alt.replace(/"/g, '&quot;');
         const safeUrl = url.replace(/"/g, '&quot;');
 
-        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" />`;
+        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" onerror="this.onerror=null; this.src=''; this.alt='[이미지 로드 실패: ${safeAlt}]'; this.className='text-red-500 text-sm italic';" />`;
     });
+
+    return result;
 }
 
 function getGradeBadgeClass(grade, isLarge = false) {
@@ -534,12 +460,44 @@ async function loadEvaluations() {
         
         // 현재 사용자의 평가 찾기
         currentUserEvaluation = allEvaluations.find(e => e.is_current_user);
-        
+
         renderEvaluations();
+
+        // AI 분석 리포트 렌더링 (평가 정보가 로드된 후)
+        renderAIReport();
     } catch (error) {
         console.error('Error loading evaluations:', error);
-        document.getElementById('evaluations-list').innerHTML = 
+        document.getElementById('evaluations-list').innerHTML =
             '<p class="text-red-500 text-sm p-4">평가 목록을 불러오는데 실패했습니다.</p>';
+    }
+}
+
+// 사업부 목록 로드
+async function loadDepartments() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/departments', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load departments');
+        }
+
+        allDepartments = await response.json();
+
+        // 사업부 드롭다운에 옵션 추가
+        const select = document.getElementById('edit-division');
+        allDepartments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading departments:', error);
     }
 }
 
@@ -604,6 +562,189 @@ function renderEvaluations() {
     }
     
     container.innerHTML = html;
+}
+
+// AI 분석 리포트 렌더링
+function renderAIReport() {
+    if (!currentApplication) return;
+
+    const app = currentApplication;
+    const badgeContainer = document.getElementById('ai-grade-badge');
+    const contentContainer = document.getElementById('ai-report-content');
+
+    // AI 평가 상세 파싱
+    let aiEvaluationDetail = {};
+    if (app.ai_evaluation_detail) {
+        try {
+            aiEvaluationDetail = typeof app.ai_evaluation_detail === 'string'
+                ? JSON.parse(app.ai_evaluation_detail)
+                : app.ai_evaluation_detail;
+        } catch (e) {
+            console.error('AI evaluation detail parsing error:', e);
+        }
+    }
+
+    // AI 등급 배지 렌더링
+    if (app.ai_grade && (user.role === 'admin' || currentUserEvaluation)) {
+        badgeContainer.innerHTML = `<span class="${getGradeBadgeClass(app.ai_grade, true)} text-sm px-3 py-1">AI 등급: ${app.ai_grade}</span>`;
+    } else {
+        badgeContainer.innerHTML = '';
+    }
+
+    // AI 분석 리포트 컨텐츠 렌더링
+    if (app.ai_grade && (user.role === 'admin' || currentUserEvaluation)) {
+        contentContainer.innerHTML = `
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            이 리포트는 AI가 지원서 내용을 분석하여 생성한 참고 자료입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-8">
+                <!-- 1. AI 기술 분류 -->
+                <div>
+                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">1</span>
+                        AI 기술 분류
+                    </h4>
+                    <div class="pl-2">
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
+                            <i class="fa-solid fa-layer-group mr-2"></i>
+                            ${aiEvaluationDetail.ai_category || app.ai_category_primary || '미분류'}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 2. 조직 관점의 경영효과 -->
+                <div>
+                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">2</span>
+                        조직 관점의 경영효과
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
+                        ${aiEvaluationDetail.business_impact || '정보 없음'}
+                    </div>
+                </div>
+
+                <!-- 3. AI 관점의 구현 가능성 -->
+                <div>
+                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">3</span>
+                        AI 관점의 구현 가능성
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
+                        ${aiEvaluationDetail.technical_feasibility || '정보 없음'}
+                    </div>
+                </div>
+
+                <!-- 4. 전체 지원서 5줄 요약 -->
+                <div>
+                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">4</span>
+                        핵심 요약 (5줄)
+                    </h4>
+                    <ul class="space-y-2">
+                        ${aiEvaluationDetail.five_line_summary && aiEvaluationDetail.five_line_summary.length > 0 ?
+                            aiEvaluationDetail.five_line_summary.map(line => `
+                                <li class="flex items-start bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                                    <i class="fa-solid fa-check text-green-500 mt-1 mr-3 flex-shrink-0"></i>
+                                    <span class="text-gray-700">${line}</span>
+                                </li>
+                            `).join('') :
+                            '<li class="text-gray-500 italic">요약 정보가 없습니다.</li>'}
+                    </ul>
+                </div>
+
+                ${aiEvaluationDetail.evaluation_scores ? `
+                <!-- 5. 평가 기준별 상세 점수 (신규 형식) -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <h4 class="text-md font-bold text-gray-800 mb-4 flex items-center">
+                        <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded mr-2">5</span>
+                        AI 등급 산정 근거 (평균: ${(() => {
+                            const scores = Object.values(aiEvaluationDetail.evaluation_scores).map(s => s.score);
+                            const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
+                            return avg;
+                        })()}/5.0 → ${app.ai_grade})
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${Object.entries({
+                            innovation: { icon: 'lightbulb', label: '혁신성', color: 'yellow' },
+                            feasibility: { icon: 'wrench', label: '실현가능성', color: 'green' },
+                            impact: { icon: 'chart-line', label: '효과성', color: 'blue' },
+                            clarity: { icon: 'crosshairs', label: '명확성', color: 'purple' }
+                        }).map(([key, meta]) => {
+                            const data = aiEvaluationDetail.evaluation_scores[key];
+                            if (!data) return '';
+                            const score = data.score;
+                            const rationale = data.rationale || '';
+                            const percentage = (score / 5) * 100;
+                            return `
+                                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center">
+                                            <i class="fa-solid fa-${meta.icon} text-${meta.color}-500 mr-2"></i>
+                                            <h5 class="font-semibold text-gray-800">${meta.label}</h5>
+                                        </div>
+                                        <span class="text-2xl font-bold text-${meta.color}-600">${score}/5</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+                                        <div class="bg-${meta.color}-500 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                    </div>
+                                    <p class="text-sm text-gray-600 leading-relaxed">${rationale}</p>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="mt-4 bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                        <strong>등급 기준:</strong>
+                        S등급(4.5~5.0), A등급(3.5~4.4), B등급(2.5~3.4), C등급(1.5~2.4), D등급(1.0~1.4)
+                    </div>
+                </div>
+                ` : app.ai_grade ? `
+                <!-- 구버전 평가 데이터 알림 -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fa-solid fa-circle-info text-yellow-500 mt-1 mr-3"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-yellow-800 mb-1">이전 버전의 평가 결과입니다</p>
+                                <p class="text-sm text-yellow-700">상세한 평가 근거를 확인하려면 AI 재평가를 실행해주세요.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                <p class="text-xs text-gray-500">
+                    <i class="fa-solid fa-robot mr-1"></i> AI 분석은 지속적으로 개선되고 있습니다. 결과에 대한 피드백은 관리자에게 문의해주세요.
+                </p>
+            </div>
+        `;
+    } else if (app.ai_grade && user.role === 'reviewer' && !currentUserEvaluation) {
+        contentContainer.innerHTML = `
+            <div class="text-center py-10">
+                <i class="fa-solid fa-lock text-yellow-300 text-4xl mb-3"></i>
+                <p class="text-gray-700 font-medium mb-2">본인 평가를 먼저 완료해주세요</p>
+                <p class="text-gray-500 text-sm">공정한 심사를 위해 본인 평가 완료 후 AI 분석 결과를 확인할 수 있습니다.</p>
+            </div>
+        `;
+    } else {
+        contentContainer.innerHTML = `
+            <div class="text-center py-10">
+                <i class="fa-solid fa-hourglass-half text-gray-300 text-4xl mb-3"></i>
+                <p class="text-gray-500">아직 AI 평가가 진행되지 않았습니다.</p>
+            </div>
+        `;
+    }
 }
 
 function showEvaluationForm() {
@@ -679,14 +820,26 @@ function showEditModal() {
         alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
         return;
     }
-    
+
     // 현재 값으로 폼 채우기
     document.getElementById('edit-subject').value = currentApplication.subject || '';
-    document.getElementById('edit-division').value = currentApplication.division || '';
+
+    // 사업부 선택 (department_id가 있으면 그것을 사용, 없으면 division 이름으로 매칭)
+    const selectElement = document.getElementById('edit-division');
+    if (currentApplication.department_id) {
+        selectElement.value = currentApplication.department_id;
+    } else if (currentApplication.division) {
+        // division 이름으로 매칭
+        const matchingDept = allDepartments.find(d => d.name === currentApplication.division);
+        selectElement.value = matchingDept ? matchingDept.id : '';
+    } else {
+        selectElement.value = '';
+    }
+
     document.getElementById('edit-participant-count').value = currentApplication.participant_count || '';
     document.getElementById('edit-representative-name').value = currentApplication.representative_name || '';
     document.getElementById('edit-representative-knox-id').value = currentApplication.representative_knox_id || '';
-    
+
     // 모달 표시
     document.getElementById('edit-modal').classList.remove('hidden');
 }
@@ -707,9 +860,10 @@ async function handleUpdate(event) {
     
     try {
         const token = localStorage.getItem('access_token');
+        const departmentId = document.getElementById('edit-division').value;
         const updateData = {
             subject: document.getElementById('edit-subject').value,
-            division: document.getElementById('edit-division').value || null,
+            department_id: departmentId ? parseInt(departmentId) : null,
             participant_count: parseInt(document.getElementById('edit-participant-count').value) || null,
             representative_name: document.getElementById('edit-representative-name').value || null,
             representative_knox_id: document.getElementById('edit-representative-knox-id').value || null
@@ -840,6 +994,7 @@ const user = {
 };
 
 // 페이지 로드 시 실행
+loadDepartments();
 loadApplicationDetail();
 </script>
 {% endblock %}

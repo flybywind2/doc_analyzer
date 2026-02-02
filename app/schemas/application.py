@@ -80,7 +80,8 @@ class ApplicationResponse(ApplicationBase):
     # 관계
     department_name: Optional[str] = None
     evaluator_name: Optional[str] = None
-    
+    user_has_evaluated: bool = False  # 현재 사용자가 이 지원서를 평가했는지 여부
+
     class Config:
         from_attributes = True
 

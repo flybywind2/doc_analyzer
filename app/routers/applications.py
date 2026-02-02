@@ -85,8 +85,17 @@ async def list_applications(
             app_data.department_name = app.department.name
         if app.evaluator:
             app_data.evaluator_name = app.evaluator.name
+
+        # 현재 사용자가 이 지원서를 평가했는지 확인
+        user_evaluation = db.query(EvaluationHistory).filter(
+            EvaluationHistory.application_id == app.id,
+            EvaluationHistory.evaluator_id == current_user.id,
+            EvaluationHistory.evaluator_type == 'USER'
+        ).first()
+        app_data.user_has_evaluated = user_evaluation is not None
+
         result.append(app_data)
-    
+
     return result
 
 
