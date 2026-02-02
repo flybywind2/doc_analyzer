@@ -18,6 +18,83 @@ from app.services.rate_limiter import RateLimiter
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def html_to_text(element) -> str:
+    """
+    Convert HTML element to formatted text preserving structure
+
+    Converts:
+    - <br> → newline
+    - <p> → newline separation
+    - <ul><li> → bullet points
+    - <ol><li> → numbered list
+    - Preserves line breaks and list formatting
+    """
+    if not element:
+        return ""
+
+    result = []
+
+    def process_element(elem, list_counter=None):
+        """Recursively process HTML elements"""
+        if elem.name is None:
+            # Text node
+            text = str(elem).strip()
+            if text:
+                result.append(text)
+        elif elem.name == 'br':
+            result.append('\n')
+        elif elem.name == 'p':
+            for child in elem.children:
+                process_element(child)
+            result.append('\n\n')
+        elif elem.name == 'ul':
+            for li in elem.find_all('li', recursive=False):
+                result.append('• ')
+                for child in li.children:
+                    if child.name != 'ul' and child.name != 'ol':
+                        process_element(child)
+                result.append('\n')
+                # Handle nested lists
+                for nested in li.find_all(['ul', 'ol'], recursive=False):
+                    result.append('  ')
+                    process_element(nested)
+        elif elem.name == 'ol':
+            counter = 1
+            for li in elem.find_all('li', recursive=False):
+                result.append(f'{counter}. ')
+                counter += 1
+                for child in li.children:
+                    if child.name != 'ul' and child.name != 'ol':
+                        process_element(child)
+                result.append('\n')
+                # Handle nested lists
+                for nested in li.find_all(['ul', 'ol'], recursive=False):
+                    result.append('  ')
+                    process_element(nested)
+        elif elem.name in ['strong', 'b', 'em', 'i', 'span', 'div']:
+            for child in elem.children:
+                process_element(child)
+        elif elem.name == 'li':
+            # Skip if already handled by ul/ol
+            pass
+        else:
+            # For other tags, just process children
+            if hasattr(elem, 'children'):
+                for child in elem.children:
+                    process_element(child)
+
+    process_element(element)
+
+    # Join and clean up
+    text = ''.join(result)
+    # Remove excessive newlines (more than 2 consecutive)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Strip leading/trailing whitespace
+    text = text.strip()
+
+    return text
+
+
 class ConfluenceParser:
     """Confluence API client and HTML parser"""
     
@@ -244,6 +321,7 @@ class ConfluenceParser:
                 """
                 섹션 번호와 키워드로 내용을 찾는 함수
                 헤더가 여러 <strong> 태그로 분리될 수 있으므로 td 전체 텍스트를 확인
+                HTML 포맷을 유지하여 줄바꿈과 리스트를 보존
                 """
                 # 모든 td 셀을 순회하며 섹션 헤더 찾기
                 for td in soup.find_all('td', class_='highlight-#b3d4ff'):
@@ -260,7 +338,8 @@ class ConfluenceParser:
                                 if content_row:
                                     content_cell = content_row.find('td')
                                     if content_cell:
-                                        text = content_cell.get_text(strip=True)
+                                        # HTML을 포맷된 텍스트로 변환
+                                        text = html_to_text(content_cell)
                                         if text and text != "여기 파싱":
                                             return text
                 return None

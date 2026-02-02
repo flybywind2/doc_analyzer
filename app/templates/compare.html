@@ -330,15 +330,15 @@ function renderComparison(apps) {
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">Pain Point</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.pain_point || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.pain_point || '-'}</td>`).join('')}
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">개선 아이디어</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.improvement_idea || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.improvement_idea || '-'}</td>`).join('')}
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">기대 효과</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.expected_effect || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.expected_effect || '-'}</td>`).join('')}
                 </tr>
 
                 <!-- AI 요약 -->
@@ -349,14 +349,14 @@ function renderComparison(apps) {
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">경영효과</td>
                     ${apps.map(app => {
                         const detail = app.ai_evaluation_detail || {};
-                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.business_impact || '-'}</td>`;
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${detail.business_impact || '-'}</td>`;
                     }).join('')}
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">구현 가능성</td>
                     ${apps.map(app => {
                         const detail = app.ai_evaluation_detail || {};
-                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.technical_feasibility || '-'}</td>`;
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${detail.technical_feasibility || '-'}</td>`;
                     }).join('')}
                 </tr>
 
