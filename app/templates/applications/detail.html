@@ -309,19 +309,19 @@ async function loadApplicationDetail() {
                 <div class="divide-y divide-gray-100">
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">현재 업무 (AS-IS)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.current_work || '-'}</div>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.current_work || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Pain Point (문제점)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.pain_point || '-'}</div>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.pain_point || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">개선 아이디어 (TO-BE)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.improvement_idea || '-'}</div>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.improvement_idea || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">기대 효과</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.expected_effect || '-'}</div>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.expected_effect || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">기타 / 바라는 점</label>
@@ -471,6 +471,22 @@ async function loadApplicationDetail() {
 }
 
 // 헬퍼 함수들
+function renderTextWithImages(text) {
+    if (!text) return text;
+
+    // Markdown 이미지 패턴: ![alt](url)
+    // 정규식으로 찾아서 HTML img 태그로 변환
+    const imagePattern = /!\[(.*?)\]\((.*?)\)/g;
+
+    return text.replace(imagePattern, (match, alt, url) => {
+        // HTML 이스케이프
+        const safeAlt = alt.replace(/"/g, '&quot;');
+        const safeUrl = url.replace(/"/g, '&quot;');
+
+        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" />`;
+    });
+}
+
 function getGradeBadgeClass(grade, isLarge = false) {
     const baseClasses = isLarge 
         ? "inline-flex items-center px-3 py-1 rounded-full text-sm font-bold shadow-sm" 

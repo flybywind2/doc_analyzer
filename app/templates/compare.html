@@ -330,15 +330,15 @@ function renderComparison(apps) {
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">Pain Point</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.pain_point || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${renderTextWithImages(app.pain_point || '-')}</td>`).join('')}
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">개선 아이디어</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.improvement_idea || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${renderTextWithImages(app.improvement_idea || '-')}</td>`).join('')}
                 </tr>
                 <tr>
                     <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">기대 효과</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${app.expected_effect || '-'}</td>`).join('')}
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed whitespace-pre-wrap">${renderTextWithImages(app.expected_effect || '-')}</td>`).join('')}
                 </tr>
 
                 <!-- AI 요약 -->
@@ -403,6 +403,22 @@ function getGradeBadgeClass(grade) {
     if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
     if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
     return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
+function renderTextWithImages(text) {
+    if (!text) return text;
+
+    // Markdown 이미지 패턴: ![alt](url)
+    // 정규식으로 찾아서 HTML img 태그로 변환
+    const imagePattern = /!\[(.*?)\]\((.*?)\)/g;
+
+    return text.replace(imagePattern, (match, alt, url) => {
+        // HTML 이스케이프
+        const safeAlt = alt.replace(/"/g, '&quot;');
+        const safeUrl = url.replace(/"/g, '&quot;');
+
+        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 400px; object-fit: contain;" />`;
+    });
 }
 
 function resetComparison() {

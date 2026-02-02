@@ -18,7 +18,7 @@ from app.services.rate_limiter import RateLimiter
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def html_to_text(element) -> str:
+def html_to_text(element, base_url: str = "") -> str:
     """
     Convert HTML element to formatted text preserving structure
 
@@ -27,6 +27,7 @@ def html_to_text(element) -> str:
     - <p> → newline separation
     - <ul><li> → bullet points
     - <ol><li> → numbered list
+    - <img> → ![alt](url) markdown format
     - Preserves line breaks and list formatting
     """
     if not element:
@@ -43,6 +44,22 @@ def html_to_text(element) -> str:
                 result.append(text)
         elif elem.name == 'br':
             result.append('\n')
+        elif elem.name == 'img':
+            # Handle images - convert to markdown format
+            src = elem.get('src', '')
+            alt = elem.get('alt', 'image')
+
+            # Convert relative URL to absolute URL
+            if src:
+                if src.startswith('http://') or src.startswith('https://'):
+                    img_url = src
+                elif src.startswith('/'):
+                    img_url = f"{base_url}{src}"
+                else:
+                    img_url = f"{base_url}/{src}"
+
+                # Markdown image format
+                result.append(f'\n![{alt}]({img_url})\n')
         elif elem.name == 'p':
             for child in elem.children:
                 process_element(child)
@@ -340,8 +357,8 @@ class ConfluenceParser:
                                 if content_row:
                                     content_cell = content_row.find('td')
                                     if content_cell:
-                                        # HTML을 포맷된 텍스트로 변환
-                                        text = html_to_text(content_cell)
+                                        # HTML을 포맷된 텍스트로 변환 (이미지 URL을 절대 경로로)
+                                        text = html_to_text(content_cell, self.link_base_url)
                                         if text and text != "여기 파싱":
                                             return text
                 return None
