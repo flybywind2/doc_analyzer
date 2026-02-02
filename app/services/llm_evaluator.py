@@ -1,10 +1,11 @@
 """
 LLM Evaluator Service
 """
+import re
 import uuid
 import json
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from langchain_openai import ChatOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -15,10 +16,11 @@ from app.services.rate_limiter import RateLimiter
 
 
 class LLMEvaluator:
-    """LLM-based application evaluator"""
-    
+    """LLM-based application evaluator with ensemble support"""
+
     def __init__(self):
-        self.llm = ChatOpenAI(
+        # Primary LLM (A)
+        self.llm_a = ChatOpenAI(
             base_url=settings.llm_api_base_url,
             api_key=settings.llm_api_key,
             model=settings.llm_model_name,
@@ -32,6 +34,28 @@ class LLMEvaluator:
                 "Completion-Msg-Id": str(uuid.uuid4()),
             },
         )
+
+        # Secondary LLM (B) - Optional for ensemble
+        self.llm_b = None
+        if settings.llm_b_api_base_url and settings.llm_b_api_key:
+            self.llm_b = ChatOpenAI(
+                base_url=settings.llm_b_api_base_url,
+                api_key=settings.llm_b_api_key,
+                model=settings.llm_b_model_name or settings.llm_model_name,
+                temperature=0.1,
+                default_headers={
+                    "x-dep-ticket": settings.llm_b_credential_key or settings.llm_credential_key,
+                    "Send-System-Name": settings.llm_system_name,
+                    "User-ID": settings.llm_user_id,
+                    "User-Type": "AD",
+                    "Prompt-Msg-Id": str(uuid.uuid4()),
+                    "Completion-Msg-Id": str(uuid.uuid4()),
+                },
+            )
+            print(f"✅ Ensemble mode enabled: LLM A ({settings.llm_model_name}) + LLM B ({settings.llm_b_model_name or settings.llm_model_name})")
+        else:
+            print(f"ℹ️  Single LLM mode: {settings.llm_model_name}")
+
         # Rate limiter: 20 calls per minute
         self.rate_limiter = RateLimiter(max_calls=20, time_window=60)
 
@@ -209,10 +233,11 @@ class LLMEvaluator:
 ---
 
 ## 응답 형식 (JSON)
-다음 JSON 형식으로 정확히 응답하세요:
+**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.
 
+```json
 {{
-  "ai_category": "예측" 또는 "분류" 또는 "챗봇" 또는 "에이전트" 또는 "최적화" 또는 "강화학습",
+  "ai_category": "예측",
   "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약",
   "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가",
   "five_line_summary": [
@@ -226,56 +251,194 @@ class LLMEvaluator:
 {self._build_json_format_example(criteria_list)}
   }}
 }}
+```
 
 **중요 규칙:**
-1. 유효한 JSON 형식 필수
-2. ai_category는 6개 선택지 중 하나만
-3. evaluation_scores의 각 score는 1-5 정수
-4. 모든 rationale은 지원서에 작성된 내용만 사용 (할루시네이션 금지)
-5. 추측이나 과장 금지 - 사실만 기반
-6. {department_info} 조직 특성 반영
+1. **유효한 JSON 형식 필수** - 모든 문자열은 큰따옴표(")로 감싸기
+2. **ai_category는 정확히 하나**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습" 중 선택
+3. **evaluation_scores의 각 score는 1-5 사이의 정수**
+4. **모든 rationale은 지원서에 작성된 내용만 사용** (할루시네이션 금지)
+5. **JSON 내부에서 줄바꿈이 필요하면 \\n 사용**
+6. **마지막 항목 뒤에는 쉼표(,) 없음** - JSON 문법 준수 필수
+7. **중괄호와 대괄호를 정확히 닫을 것**
+8. {department_info} 조직 특성 반영
+
+**응답은 JSON만 포함하세요. 설명이나 추가 텍스트 없이 JSON 객체만 반환하세요.**
 """
         return prompt
-    
+
+    def _extract_json_from_text(self, text: str) -> Optional[str]:
+        """
+        Extract JSON from LLM response text using multiple strategies
+
+        Args:
+            text: Raw LLM response text
+
+        Returns:
+            Extracted JSON string or None
+        """
+        # Strategy 1: Remove markdown code blocks
+        if "```json" in text:
+            parts = text.split("```json")
+            if len(parts) > 1:
+                json_part = parts[1].split("```")[0]
+                return json_part.strip()
+        elif "```" in text:
+            parts = text.split("```")
+            if len(parts) > 1:
+                json_part = parts[1]
+                return json_part.strip()
+
+        # Strategy 2: Find JSON object using regex (찾아서 { } 블록 추출)
+        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        matches = re.finditer(json_pattern, text, re.DOTALL)
+        for match in matches:
+            json_candidate = match.group(0)
+            try:
+                # Validate it's valid JSON
+                json.loads(json_candidate)
+                return json_candidate
+            except:
+                continue
+
+        # Strategy 3: Find first { to last }
+        start_idx = text.find('{')
+        end_idx = text.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_candidate = text[start_idx:end_idx+1]
+            return json_candidate
+
+        # Strategy 4: Return original text (last resort)
+        return text.strip()
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type(Exception)
     )
-    def evaluate_with_llm(self, prompt: str) -> Dict[str, Any]:
+    def evaluate_with_single_llm(self, llm, prompt: str, llm_name: str = "LLM") -> Dict[str, Any]:
         """
-        Evaluate application using LLM with retry logic
-        
+        Evaluate application using a single LLM with robust JSON parsing
+
         Args:
+            llm: LLM instance to use
             prompt: Evaluation prompt
-            
+            llm_name: Name of LLM for logging
+
         Returns:
             Evaluation result dictionary
-            
+
         Raises:
             Exception: If evaluation fails after retries
         """
         # Apply rate limiting before LLM call
         self.rate_limiter.wait_if_needed()
-        
-        response = self.llm.invoke(prompt)
+
+        response = llm.invoke(prompt)
         content = response.content
-        
-        # JSON 파싱 시도
+
+        # Extract JSON from response
+        json_text = self._extract_json_from_text(content)
+
+        # Parse JSON
         try:
-            # Markdown code block 제거
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-            
-            result = json.loads(content.strip())
+            result = json.loads(json_text)
+            print(f"✅ {llm_name} JSON parsed successfully")
             return result
         except json.JSONDecodeError as e:
-            print(f"❌ JSON parsing error: {e}")
-            print(f"Response content: {content}")
+            print(f"❌ {llm_name} JSON parsing error: {e}")
+            print(f"📄 Response content (first 500 chars): {content[:500]}")
+            print(f"📄 Extracted JSON (first 500 chars): {json_text[:500]}")
             raise
+
+    def evaluate_with_llm(self, prompt: str) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+        """
+        Evaluate application using LLM(s) with retry logic
+        Returns results from both LLMs if ensemble mode is enabled
+
+        Args:
+            prompt: Evaluation prompt
+
+        Returns:
+            Tuple of (primary_result, secondary_result or None)
+
+        Raises:
+            Exception: If evaluation fails after retries
+        """
+        # Evaluate with primary LLM (A)
+        result_a = self.evaluate_with_single_llm(self.llm_a, prompt, "LLM A")
+
+        # Evaluate with secondary LLM (B) if available
+        result_b = None
+        if self.llm_b:
+            try:
+                result_b = self.evaluate_with_single_llm(self.llm_b, prompt, "LLM B")
+            except Exception as e:
+                print(f"⚠️  LLM B evaluation failed: {e}")
+                print(f"ℹ️  Continuing with LLM A result only")
+
+        return result_a, result_b
     
+    def _ensemble_results(self, result_a: Dict[str, Any], result_b: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Ensemble results from two LLMs by averaging scores
+
+        Args:
+            result_a: Result from LLM A
+            result_b: Result from LLM B
+
+        Returns:
+            Ensembled result dictionary
+        """
+        ensembled = {
+            "ai_category": result_a.get("ai_category", "분류"),  # Use A's category
+            "business_impact": result_a.get("business_impact", ""),  # Use A's impact
+            "technical_feasibility": result_a.get("technical_feasibility", ""),  # Use A's feasibility
+            "five_line_summary": result_a.get("five_line_summary", []),  # Use A's summary
+            "evaluation_scores": {}
+        }
+
+        # Ensemble evaluation scores by averaging
+        scores_a = result_a.get("evaluation_scores", {})
+        scores_b = result_b.get("evaluation_scores", {})
+
+        # Get all criteria keys from both results
+        all_criteria = set(scores_a.keys()) | set(scores_b.keys())
+
+        for criterion in all_criteria:
+            score_a_obj = scores_a.get(criterion, {})
+            score_b_obj = scores_b.get(criterion, {})
+
+            score_a = score_a_obj.get("score", 0) if isinstance(score_a_obj, dict) else 0
+            score_b = score_b_obj.get("score", 0) if isinstance(score_b_obj, dict) else 0
+
+            rationale_a = score_a_obj.get("rationale", "") if isinstance(score_a_obj, dict) else ""
+            rationale_b = score_b_obj.get("rationale", "") if isinstance(score_b_obj, dict) else ""
+
+            # Average the scores (round to nearest integer)
+            if score_a > 0 and score_b > 0:
+                avg_score = round((score_a + score_b) / 2)
+                combined_rationale = f"[LLM A] {rationale_a}\n\n[LLM B] {rationale_b}"
+            elif score_a > 0:
+                avg_score = score_a
+                combined_rationale = rationale_a
+            elif score_b > 0:
+                avg_score = score_b
+                combined_rationale = rationale_b
+            else:
+                avg_score = 3  # Default to middle score
+                combined_rationale = "평가 점수를 산출할 수 없습니다."
+
+            ensembled["evaluation_scores"][criterion] = {
+                "score": avg_score,
+                "rationale": combined_rationale,
+                "score_a": score_a,
+                "score_b": score_b
+            }
+
+        print(f"✅ Ensembled results from LLM A and LLM B")
+        return ensembled
+
     def calculate_overall_grade(self, evaluation_detail: Dict[str, Any]) -> str:
         """
         Calculate overall grade from evaluation details
@@ -336,11 +499,18 @@ class LLMEvaluator:
             
             # Build prompt
             prompt = self.build_evaluation_prompt(application, criteria_list or [])
-            
-            # Evaluate with LLM
+
+            # Evaluate with LLM(s)
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
-            result = self.evaluate_with_llm(prompt)
-            
+            result_a, result_b = self.evaluate_with_llm(prompt)
+
+            # Ensemble results if both LLMs returned results
+            if result_b:
+                print(f"🔄 Ensembling results from LLM A and LLM B...")
+                result = self._ensemble_results(result_a, result_b)
+            else:
+                result = result_a
+
             # Extract results
             ai_category = result.get("ai_category", "분류")
             business_impact = result.get("business_impact", "")
