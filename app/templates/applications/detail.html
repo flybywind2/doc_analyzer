@@ -540,7 +540,14 @@ function renderEvaluations() {
                         <span class="font-medium text-gray-900">${evaluation.evaluator_name}</span>
                         ${isCurrentUser ? '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">내 평가</span>' : ''}
                     </div>
-                    <span class="text-xs text-gray-500">${new Date(evaluation.created_at).toLocaleString('ko-KR')}</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-500">${new Date(evaluation.created_at).toLocaleString('ko-KR')}</span>
+                        ${isCurrentUser ? `
+                            <button onclick="editMyEvaluation()" class="text-blue-600 hover:text-blue-700 text-sm">
+                                <i class="fa-solid fa-pen-to-square"></i> 수정
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
                 <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${evaluation.comment || '-'}</div>
             </div>
@@ -762,12 +769,17 @@ async function runAIEvaluation() {
     }
 }
 
+// 내 평가 수정
+function editMyEvaluation() {
+    showEvaluationForm();
+}
+
 // 삭제
 async function deleteApplication() {
     if (!confirm('정말 이 지원서를 삭제하시겠습니까? 복구할 수 없습니다.')) {
         return;
     }
-    
+
     try {
         const token = localStorage.getItem('access_token');
         const response = await fetch(`/api/applications/${applicationId}`, {
@@ -776,7 +788,7 @@ async function deleteApplication() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (response.ok) {
             alert('지원서가 삭제되었습니다.');
             window.location.href = '/applications';
