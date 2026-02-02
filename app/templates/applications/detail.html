@@ -664,44 +664,64 @@ function renderAIReport() {
                 </div>
 
                 ${aiEvaluationDetail.evaluation_scores ? `
-                <!-- 5. 평가 기준별 상세 점수 (신규 형식) -->
+                <!-- 5. 평가 기준별 상세 점수 (동적 렌더링) -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <h4 class="text-md font-bold text-gray-800 mb-4 flex items-center">
                         <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded mr-2">5</span>
                         AI 등급 산정 근거 (평균: ${(() => {
                             const scores = Object.values(aiEvaluationDetail.evaluation_scores).map(s => s.score);
+                            if (scores.length === 0) return '0.0';
                             const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
                             return avg;
                         })()}/5.0 → ${app.ai_grade})
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${Object.entries({
-                            innovation: { icon: 'lightbulb', label: '혁신성', color: 'yellow' },
-                            feasibility: { icon: 'wrench', label: '실현가능성', color: 'green' },
-                            impact: { icon: 'chart-line', label: '효과성', color: 'blue' },
-                            clarity: { icon: 'crosshairs', label: '명확성', color: 'purple' }
-                        }).map(([key, meta]) => {
-                            const data = aiEvaluationDetail.evaluation_scores[key];
-                            if (!data) return '';
-                            const score = data.score;
-                            const rationale = data.rationale || '';
-                            const percentage = (score / 5) * 100;
-                            return `
-                                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <div class="flex items-center">
-                                            <i class="fa-solid fa-${meta.icon} text-${meta.color}-500 mr-2"></i>
-                                            <h5 class="font-semibold text-gray-800">${meta.label}</h5>
+                        ${(() => {
+                            // 키별 메타데이터 매핑 (fallback용)
+                            const metaMap = {
+                                innovation: { icon: 'lightbulb', label: '혁신성', color: 'yellow' },
+                                feasibility: { icon: 'wrench', label: '실현가능성', color: 'green' },
+                                impact: { icon: 'chart-line', label: '효과성', color: 'blue' },
+                                clarity: { icon: 'crosshairs', label: '명확성', color: 'purple' }
+                            };
+
+                            // DB에 저장된 모든 평가 점수를 동적으로 렌더링
+                            return Object.entries(aiEvaluationDetail.evaluation_scores).map(([key, data]) => {
+                                if (!data || typeof data !== 'object') return '';
+
+                                const score = data.score || 0;
+                                const rationale = data.rationale || '평가 근거가 없습니다.';
+                                const percentage = (score / 5) * 100;
+
+                                // 메타데이터 가져오기 (없으면 기본값)
+                                const meta = metaMap[key] || {
+                                    icon: 'star',
+                                    label: key.charAt(0).toUpperCase() + key.slice(1),
+                                    color: 'gray'
+                                };
+
+                                // 앙상블 점수가 있으면 표시
+                                const scoreDisplay = data.score_a && data.score_b ?
+                                    `${score}/5 <span class="text-xs text-gray-500">(A:${data.score_a}, B:${data.score_b})</span>` :
+                                    `${score}/5`;
+
+                                return `
+                                    <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center">
+                                                <i class="fa-solid fa-${meta.icon} text-${meta.color}-500 mr-2"></i>
+                                                <h5 class="font-semibold text-gray-800">${meta.label}</h5>
+                                            </div>
+                                            <span class="text-2xl font-bold text-${meta.color}-600">${scoreDisplay}</span>
                                         </div>
-                                        <span class="text-2xl font-bold text-${meta.color}-600">${score}/5</span>
+                                        <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+                                            <div class="bg-${meta.color}-500 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                        </div>
+                                        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${rationale}</p>
                                     </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                        <div class="bg-${meta.color}-500 h-2 rounded-full" style="width: ${percentage}%"></div>
-                                    </div>
-                                    <p class="text-sm text-gray-600 leading-relaxed">${rationale}</p>
-                                </div>
-                            `;
-                        }).join('')}
+                                `;
+                            }).join('');
+                        })()}
                     </div>
                     <div class="mt-4 bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
                         <strong>등급 기준:</strong>
