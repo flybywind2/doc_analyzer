@@ -1,6 +1,7 @@
 """
 Application Configuration
 """
+from typing import Optional
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     
     # Confluence
     confluence_base_url: str  # API 동기화용 URL (mirror 서버)
-    confluence_link_base_url: str = None  # 사용자 링크용 URL (실제 서버, 없으면 base_url 사용)
+    confluence_link_base_url: Optional[str] = None  # 사용자 링크용 URL (실제 서버, 없으면 base_url 사용)
     confluence_username: str
     confluence_password: str
     confluence_space_key: str
