@@ -645,6 +645,23 @@ function renderAIReport() {
                     </div>
                 </div>
 
+                ${aiEvaluationDetail.debate_summary ? `
+                <!-- 3.5. AI 간 논의 요약 (Debate Mode) -->
+                <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                    <h4 class="text-md font-bold text-purple-800 mb-3 flex items-center">
+                        <i class="fa-solid fa-comments text-purple-600 mr-2"></i>
+                        AI 평가자 간 논의 결과
+                    </h4>
+                    <div class="text-gray-700 leading-relaxed">
+                        ${aiEvaluationDetail.debate_summary}
+                    </div>
+                    <div class="mt-2 text-xs text-purple-600">
+                        <i class="fa-solid fa-info-circle mr-1"></i>
+                        LLM A의 초기 평가를 LLM B가 검토하고 개선한 결과입니다.
+                    </div>
+                </div>
+                ` : ''}
+
                 <!-- 4. 전체 지원서 5줄 요약 -->
                 <div>
                     <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
@@ -705,21 +722,32 @@ function renderAIReport() {
                                     `${score}/5 <span class="text-xs text-gray-500">(A:${data.score_a}, B:${data.score_b})</span>` :
                                     `${score}/5`;
 
+                                // Tailwind CSS 동적 클래스 문제 해결: 미리 정의된 클래스 사용
+                                const colorClasses = {
+                                    yellow: { icon: 'text-yellow-500', score: 'text-yellow-600', bar: 'bg-yellow-500' },
+                                    green: { icon: 'text-green-500', score: 'text-green-600', bar: 'bg-green-500' },
+                                    blue: { icon: 'text-blue-500', score: 'text-blue-600', bar: 'bg-blue-500' },
+                                    purple: { icon: 'text-purple-500', score: 'text-purple-600', bar: 'bg-purple-500' },
+                                    gray: { icon: 'text-gray-500', score: 'text-gray-600', bar: 'bg-gray-500' }
+                                };
+                                const colors = colorClasses[meta.color] || colorClasses.gray;
+
                                 return `
                                     <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                         <div class="flex items-center justify-between mb-2">
                                             <div class="flex items-center">
-                                                <i class="fa-solid fa-${meta.icon} text-${meta.color}-500 mr-2"></i>
+                                                <i class="fa-solid fa-${meta.icon} ${colors.icon} mr-2"></i>
                                                 <h5 class="font-semibold text-gray-800">${meta.label}</h5>
                                             </div>
-                                            <span class="text-2xl font-bold text-${meta.color}-600">${scoreDisplay}</span>
+                                            <span class="text-2xl font-bold ${colors.score}">${scoreDisplay}</span>
                                         </div>
                                         <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                            <div class="bg-${meta.color}-500 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                            <div class="${colors.bar} h-2 rounded-full" style="width: ${percentage}%"></div>
                                         </div>
                                         <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${rationale}</p>
                                     </div>
                                 `;
+                            }).join('');
                             }).join('');
                         })()}
                     </div>
