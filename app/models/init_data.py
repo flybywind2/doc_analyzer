@@ -4,6 +4,7 @@ Initialize database with default data
 import bcrypt
 from sqlalchemy.orm import Session
 from app.models.user import User
+from app.models.department import Department
 from app.models.category import AICategory
 from app.models.evaluation import EvaluationCriteria
 
@@ -29,7 +30,33 @@ def init_default_data(db: Session):
         )
         db.add(admin_user)
         print("✅ Default admin user created (username: admin, password: admin123!)")
-    
+
+    # Initialize Departments (example data)
+    departments_data = [
+        {
+            "name": "DS 사업부",
+            "description": "Device Solutions 사업부",
+            "total_employees": 500
+        },
+        {
+            "name": "IT 부문",
+            "description": "Information Technology 부문",
+            "total_employees": 300
+        },
+        {
+            "name": "경영지원실",
+            "description": "경영지원 및 인사/재무",
+            "total_employees": 150
+        },
+    ]
+
+    existing_departments = db.query(Department).count()
+    if existing_departments == 0:
+        for dept_data in departments_data:
+            department = Department(**dept_data)
+            db.add(department)
+        print(f"✅ {len(departments_data)} departments created")
+
     # Initialize AI Categories
     categories_data = [
         {"name": "LLM", "description": "텍스트 생성, 요약, 번역, 챗봇", 

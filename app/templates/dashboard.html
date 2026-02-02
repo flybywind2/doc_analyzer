@@ -93,13 +93,14 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총인원</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원 수</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">참여율</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평균 등급</th>
                             </tr>
                         </thead>
                         <tbody id="department-stats" class="bg-white divide-y divide-gray-200">
-                            <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">로딩 중...</td></tr>
+                            <tr><td colspan="5" class="px-6 py-10 text-center text-gray-500">로딩 중...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -181,16 +182,50 @@ async function loadDashboard() {
             tbody.innerHTML = '';
             
             deptStats.forEach(dept => {
+                const totalEmployees = dept.total_employees || 0;
+                const participationRate = dept.participation_rate || 0;
+
+                // 참여율에 따른 색상 및 표시
+                let rateColor = 'text-gray-500';
+                let rateBarColor = 'bg-gray-400';
+                let rateDisplay = '-';
+
+                if (totalEmployees > 0) {
+                    rateDisplay = `${participationRate.toFixed(1)}%`;
+
+                    // 참여율에 따른 색상 변경
+                    if (participationRate >= 10) {
+                        rateColor = 'text-green-600 font-semibold';
+                        rateBarColor = 'bg-green-600';
+                    } else if (participationRate >= 5) {
+                        rateColor = 'text-blue-600 font-semibold';
+                        rateBarColor = 'bg-blue-600';
+                    } else if (participationRate > 0) {
+                        rateColor = 'text-yellow-600 font-semibold';
+                        rateBarColor = 'bg-yellow-600';
+                    }
+                }
+
                 const row = `
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${dept.department_name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dept.application_count}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            ${totalEmployees > 0 ? `<span class="font-medium">${totalEmployees.toLocaleString()}명</span>` : '<span class="text-gray-400">미입력</span>'}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span class="font-medium">${dept.application_count}개</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex items-center">
-                                <span class="mr-2">${dept.participation_rate.toFixed(1)}%</span>
-                                <div class="w-full bg-gray-200 rounded-full h-1.5 max-w-[50px]">
-                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${dept.participation_rate}%"></div>
-                                </div>
+                                <span class="${rateColor} mr-2 min-w-[45px]">${rateDisplay}</span>
+                                ${totalEmployees > 0 ? `
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                                        <div class="${rateBarColor} h-2 rounded-full transition-all" style="width: ${Math.min(participationRate, 100)}%"></div>
+                                    </div>
+                                    <span class="ml-2 text-xs text-gray-400">
+                                        ${dept.application_count}/${totalEmployees}
+                                    </span>
+                                ` : ''}
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span class="${getGradeBadgeClass(dept.avg_grade)}">${dept.avg_grade}</span></td>

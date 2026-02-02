@@ -22,12 +22,14 @@
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부명</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">설명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총인원</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원서 수</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">참여율</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -57,6 +59,11 @@
                                 <div class="mb-4">
                                     <label for="description" class="block text-sm font-medium text-gray-700 mb-1">설명</label>
                                     <textarea id="description" rows="3" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"></textarea>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="total-employees" class="block text-sm font-medium text-gray-700 mb-1">총인원</label>
+                                    <input type="number" id="total-employees" min="0" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" placeholder="예: 150">
+                                    <p class="mt-1 text-xs text-gray-500">사업부의 전체 인원 수를 입력하세요 (참여율 계산에 사용됩니다)</p>
                                 </div>
                             </form>
                         </div>
@@ -188,17 +195,47 @@ async function loadDepartments() {
         const tbody = document.querySelector('#departments-table tbody');
         
         if (allDepartments.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">사업부가 없습니다</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">사업부가 없습니다</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = allDepartments.map(dept => {
             const appCount = departmentApplications[dept.id]?.length || 0;
+            const totalEmployees = dept.total_employees || 0;
+
+            // 참여율 계산 (지원서 수 / 총인원 * 100)
+            let participationRate = 0;
+            let participationRateText = '-';
+            let participationClass = 'text-gray-500';
+
+            if (totalEmployees > 0) {
+                participationRate = (appCount / totalEmployees * 100).toFixed(1);
+                participationRateText = `${participationRate}%`;
+
+                // 참여율에 따른 색상
+                if (participationRate >= 10) {
+                    participationClass = 'text-green-600 font-semibold';
+                } else if (participationRate >= 5) {
+                    participationClass = 'text-blue-600 font-semibold';
+                } else if (participationRate > 0) {
+                    participationClass = 'text-yellow-600 font-semibold';
+                } else {
+                    participationClass = 'text-gray-500';
+                }
+            }
+
             return `
             <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${dept.name}</td>
                 <td class="px-6 py-4 text-sm text-gray-500">${dept.description || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    ${totalEmployees > 0 ? `<span class="font-medium">${totalEmployees.toLocaleString()}명</span>` : '<span class="text-gray-400">미입력</span>'}
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${appCount}개</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm ${participationClass}">
+                    ${participationRateText}
+                    ${totalEmployees > 0 && participationRate > 0 ? `<span class="text-xs text-gray-400 ml-1">(${appCount}/${totalEmployees})</span>` : ''}
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
                     <button onclick="openCompareModal(${dept.id}, '${dept.name}')" class="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" ${appCount < 2 ? 'disabled' : ''}>
                         <i class="fa-solid fa-scale-balanced"></i> 비교
@@ -215,7 +252,7 @@ async function loadDepartments() {
     } catch (error) {
         console.error('Error loading departments:', error);
         const tbody = document.querySelector('#departments-table tbody');
-        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-red-500">데이터를 불러오는데 실패했습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-red-500">데이터를 불러오는데 실패했습니다</td></tr>';
     }
 }
 
@@ -241,6 +278,7 @@ async function editDepartment(deptId) {
         document.getElementById('dept-id').value = dept.id;
         document.getElementById('name').value = dept.name;
         document.getElementById('description').value = dept.description || '';
+        document.getElementById('total-employees').value = dept.total_employees || '';
         document.getElementById('dept-modal').classList.remove('hidden');
     } catch (error) {
         console.error('Error loading department:', error);
@@ -252,9 +290,11 @@ async function submitDepartment(event) {
     event.preventDefault();
     
     const deptId = document.getElementById('dept-id').value;
+    const totalEmployeesValue = document.getElementById('total-employees').value;
     const data = {
         name: document.getElementById('name').value,
-        description: document.getElementById('description').value || null
+        description: document.getElementById('description').value || null,
+        total_employees: totalEmployeesValue ? parseInt(totalEmployeesValue) : 0
     };
     
     try {

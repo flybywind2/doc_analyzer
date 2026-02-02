@@ -48,6 +48,18 @@ async def application_detail_page(
     )
 
 
+@router.get("/compare", response_class=HTMLResponse)
+async def compare_applications_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Applications comparison page"""
+    return templates.TemplateResponse(
+        "compare.html",
+        {"request": request, "user": current_user}
+    )
+
+
 @router.get("/auth/change-password", response_class=HTMLResponse)
 async def change_password_page(
     request: Request,

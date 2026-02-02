@@ -78,6 +78,7 @@ class AIEvaluationResponse(BaseModel):
 class DepartmentBase(BaseModel):
     """Base department schema"""
     name: str = Field(..., max_length=100)
+    description: Optional[str] = None
     total_employees: int = Field(default=0, ge=0)
 
 
@@ -89,6 +90,7 @@ class DepartmentCreate(DepartmentBase):
 class DepartmentUpdate(BaseModel):
     """Schema for updating department"""
     name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
     total_employees: Optional[int] = Field(None, ge=0)
 
 

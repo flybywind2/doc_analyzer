@@ -124,12 +124,12 @@ class ConfluenceParser:
     def parse_application(self, html_content: str, page_id: str, page_url: str) -> Dict[str, Any]:
         """
         Parse application data from HTML content
-        
+
         Args:
             html_content: XHTML content
             page_id: Confluence page ID
             page_url: Confluence page URL
-            
+
         Returns:
             Parsed application data dictionary
         """
@@ -140,172 +140,257 @@ class ConfluenceParser:
             "parse_error_log": ""
         }
         errors = []
-        
+
         try:
-            # 기본사항 파싱 - 헤더 행 다음 행에서 실제 내용 추출
-            # class="subject" 등의 헤더 셀은 보통 비어있고, 다음 <tr>의 <td>에 내용이 있음
-            
-            # 과제명 (class="subject")
+            # ============================================================
+            # I. 기본사항 파싱
+            # ============================================================
+
+            # 과제명 (class="subject") - 셀 안에 직접 내용이 있음
             subject_elem = soup.find(class_="subject")
             if subject_elem:
-                header_row = subject_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["subject"] = content_cell.get_text(strip=True)
-            
-            # 소속 (class="division")
+                text = subject_elem.get_text(strip=True)
+                if text and text != "여기 파싱":
+                    data["subject"] = text
+
+            # 소속/사업부 (class="division") - 셀 안에 직접 내용이 있음
             division_elem = soup.find(class_="division")
             if division_elem:
-                header_row = division_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["division"] = content_cell.get_text(strip=True)
-            
-            # 참여인원 (class="dept")
+                text = division_elem.get_text(strip=True)
+                if text and text != "여기 파싱":
+                    data["division"] = text
+
+            # 참여인원 (class="dept") - 셀 안에 직접 내용이 있음
             dept_elem = soup.find(class_="dept")
             if dept_elem:
-                header_row = dept_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            dept_text = content_cell.get_text(strip=True)
-                            # 숫자만 추출
-                            numbers = re.findall(r'\d+', dept_text)
-                            if numbers:
-                                data["participant_count"] = int(numbers[0])
-            
-            # 대표자 정보 - colspan 기반 파싱 (구조 분석 필요)
-            # 예: 테이블에서 "대표자" 라벨을 찾고 다음 td에서 이름, Knox ID 추출
-            rep_cells = soup.find_all('td', colspan=True)
-            for cell in rep_cells:
-                text = cell.get_text(strip=True)
-                if '대표자' in text or 'Knox' in text:
-                    # 이름과 Knox ID 분리 로직
-                    parts = text.split()
-                    if len(parts) >= 2:
-                        data["representative_name"] = parts[0]
-                        data["representative_knox_id"] = parts[1] if len(parts) > 1 else None
-            
-            # 사전 설문 파싱 - 헤더 행 다음 행에서 실제 내용 추출
+                dept_text = dept_elem.get_text(strip=True)
+                if dept_text and dept_text != "여기 파싱":
+                    # 숫자만 추출
+                    numbers = re.findall(r'\d+', dept_text)
+                    if numbers:
+                        data["participant_count"] = int(numbers[0])
+
+            # 과제 대표자 - "과제 대표자" 헤더를 찾고 같은 행의 다음 셀에서 내용 추출
+            rep_header_elem = soup.find('strong', string=re.compile(r'과제\s*대표자'))
+            if rep_header_elem:
+                header_cell = rep_header_elem.find_parent('td')
+                if header_cell:
+                    # 같은 행의 다음 셀들 확인
+                    next_cells = header_cell.find_next_siblings('td')
+                    for cell in next_cells:
+                        text = cell.get_text(strip=True)
+                        if text and text != "여기 파싱" and len(text) > 0:
+                            # "이름 (Knox ID)" 또는 "이름 Knox ID" 형식 파싱
+                            # 괄호로 분리 시도
+                            match = re.match(r'(.+?)\s*[\(（](.+?)[\)）]', text)
+                            if match:
+                                data["representative_name"] = match.group(1).strip()
+                                data["representative_knox_id"] = match.group(2).strip()
+                            else:
+                                # 공백으로 분리 시도
+                                parts = text.split()
+                                if len(parts) >= 2:
+                                    data["representative_name"] = parts[0]
+                                    data["representative_knox_id"] = parts[1]
+                                elif len(parts) == 1:
+                                    data["representative_name"] = parts[0]
+                            break
+
+            # ============================================================
+            # II. 사전 설문 파싱
+            # ============================================================
+            # class="q1"~"q6" 셀과 같은 행의 다음 셀에서 체크 여부 확인
             pre_survey = {}
             for i in range(1, 7):
                 q_elem = soup.find(class_=f"q{i}")
                 if q_elem:
-                    header_row = q_elem.find_parent('tr')
-                    if header_row:
-                        next_row = header_row.find_next_sibling('tr')
-                        if next_row:
-                            content_cell = next_row.find('td')
-                            if content_cell:
-                                pre_survey[f"q{i}"] = content_cell.get_text(strip=True)
+                    # 같은 행의 다음 셀 확인 (예/아니오 중 체크된 것)
+                    row = q_elem.find_parent('tr')
+                    if row:
+                        cells = row.find_all('td')
+                        # q{i} 셀의 인덱스 찾기
+                        q_index = -1
+                        for idx, cell in enumerate(cells):
+                            if f"q{i}" in cell.get('class', []):
+                                q_index = idx
+                                break
+
+                        # q{i} 셀과 그 다음 셀 확인
+                        if q_index >= 0:
+                            # q{i} 셀 체크 (보통 "예" 열)
+                            q_text = cells[q_index].get_text(strip=True)
+                            # 다음 셀 체크 (보통 "아니오" 열)
+                            next_text = cells[q_index + 1].get_text(strip=True) if q_index + 1 < len(cells) else ""
+
+                            # 체크된 곳이 있으면 저장
+                            if q_text and q_text not in ['', 'O', 'X']:
+                                pre_survey[f"q{i}"] = "예"
+                            elif next_text and next_text not in ['', 'O', 'X']:
+                                pre_survey[f"q{i}"] = "아니오"
+                            # O, X 또는 빈칸으로 표시된 경우
+                            elif 'O' in q_text or '○' in q_text or '✓' in q_text:
+                                pre_survey[f"q{i}"] = "예"
+                            elif 'O' in next_text or '○' in next_text or '✓' in next_text:
+                                pre_survey[f"q{i}"] = "아니오"
+
             if pre_survey:
                 data["pre_survey"] = pre_survey
-            
-            # 신청 내용 파싱 - 헤더 행 다음 행에서 실제 내용 추출
-            # class="pain" 등의 헤더 셀은 보통 비어있고, 다음 <tr>의 <td>에 내용이 있음
-            
-            # 현업업무 (class="pain")
-            pain_elem = soup.find(class_="pain")
-            if pain_elem:
-                # 헤더 행(<tr>)의 다음 형제 행에서 내용 추출
-                header_row = pain_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["current_work"] = content_cell.get_text(strip=True)
-            
-            # Pain Point (class="pain_point" 또는 별도 섹션)
-            pain_point_elem = soup.find(class_="pain_point")
-            if pain_point_elem:
-                header_row = pain_point_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["pain_point"] = content_cell.get_text(strip=True)
-            
-            # 개선아이디어 (class="improve")
-            improve_elem = soup.find(class_="improve")
-            if improve_elem:
-                header_row = improve_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["improvement_idea"] = content_cell.get_text(strip=True)
-            
-            # 기대효과 (class="effect")
-            effect_elem = soup.find(class_="effect")
-            if effect_elem:
-                header_row = effect_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["expected_effect"] = content_cell.get_text(strip=True)
-            
-            # AI팀에 바라는 점 (class="hope")
-            hope_elem = soup.find(class_="hope")
-            if hope_elem:
-                header_row = hope_elem.find_parent('tr')
-                if header_row:
-                    next_row = header_row.find_next_sibling('tr')
-                    if next_row:
-                        content_cell = next_row.find('td')
-                        if content_cell:
-                            data["hope"] = content_cell.get_text(strip=True)
-            
-            # 기술 역량 파싱 (중첩 테이블)
+
+            # ============================================================
+            # III. 신청 내용 파싱
+            # ============================================================
+            # 섹션 헤더를 찾아서 내용 추출하는 헬퍼 함수
+            def find_section_content(section_number: str, section_keyword: str) -> Optional[str]:
+                """
+                섹션 번호와 키워드로 내용을 찾는 함수
+                헤더가 여러 <strong> 태그로 분리될 수 있으므로 td 전체 텍스트를 확인
+                """
+                # 모든 td 셀을 순회하며 섹션 헤더 찾기
+                for td in soup.find_all('td', class_='highlight-#b3d4ff'):
+                    td_text = td.get_text(strip=True)
+                    # 섹션 번호와 키워드 모두 포함되어 있는지 확인
+                    if section_number in td_text and section_keyword in td_text:
+                        header_row = td.find_parent('tr')
+                        if header_row:
+                            # 다음 행 (보통 빈 행 또는 class가 있는 행)
+                            next_row = header_row.find_next_sibling('tr')
+                            if next_row:
+                                # 그 다음 행에서 내용 찾기
+                                content_row = next_row.find_next_sibling('tr')
+                                if content_row:
+                                    content_cell = content_row.find('td')
+                                    if content_cell:
+                                        text = content_cell.get_text(strip=True)
+                                        if text and text != "여기 파싱":
+                                            return text
+                return None
+
+            # 현재 업무
+            current_work = find_section_content("1.", "현재 업무")
+            if current_work:
+                data["current_work"] = current_work
+
+            # Pain Point
+            pain_point = find_section_content("2.", "Pain point")
+            if pain_point:
+                data["pain_point"] = pain_point
+
+            # 개선 아이디어
+            improvement_idea = find_section_content("3.", "개선 아이디어")
+            if improvement_idea:
+                data["improvement_idea"] = improvement_idea
+
+            # 기대 효과
+            expected_effect = find_section_content("4.", "기대 효과")
+            if expected_effect:
+                data["expected_effect"] = expected_effect
+
+            # 바라는 점
+            hope = find_section_content("5.", "바라는 점")
+            if hope:
+                data["hope"] = hope
+
+            # ============================================================
+            # IV. 과제 참여자 기술 역량 파싱 (중첩 테이블, 동적 구조)
+            # ============================================================
             tech_capabilities = []
-            # 기술 역량 섹션 찾기
-            for table in soup.find_all('table'):
-                headers = [th.get_text(strip=True) for th in table.find_all('th')]
-                if any('기술' in h or '역량' in h for h in headers):
-                    for row in table.find_all('tr')[1:]:  # 헤더 제외
-                        cells = row.find_all('td')
-                        if len(cells) >= 3:
-                            category = cells[0].get_text(strip=True)
-                            skill = cells[1].get_text(strip=True)
-                            level_text = cells[2].get_text(strip=True)
-                            # 레벨 숫자 추출
-                            level_numbers = re.findall(r'\d+', level_text)
-                            level = int(level_numbers[0]) if level_numbers else 0
-                            
-                            tech_capabilities.append({
-                                "category": category,
-                                "skill": skill,
-                                "level": level
-                            })
+
+            # "IV. 과제 참여자 기술 역량" 헤더 찾기
+            tech_header = soup.find('strong', string=re.compile(r'IV\.\s*과제\s*참여자\s*기술\s*역량'))
+            if tech_header:
+                # 헤더 행의 부모 테이블 찾기
+                main_table = tech_header.find_parent('table')
+                if main_table:
+                    # 중첩된 테이블 찾기 (data-mce-resize 속성이 있는 테이블)
+                    nested_table = main_table.find('table', class_='wrapped')
+                    if nested_table:
+                        current_category = None  # 현재 대분류 (예: "코드 구현", "데이터 분석/시각화")
+
+                        rows = nested_table.find_all('tr')
+                        for row in rows:
+                            cells = row.find_all('td')
+
+                            # 헤더 행 스킵 (분야/기술/레벨)
+                            if len(cells) > 0:
+                                first_cell_text = cells[0].get_text(strip=True)
+                                if '분야' in first_cell_text or '레벨' in first_cell_text:
+                                    continue
+
+                            # 대분류 행 (colspan="9")
+                            if len(cells) == 1 and cells[0].get('colspan') == '9':
+                                category_text = cells[0].get_text(strip=True)
+                                if category_text and category_text not in ['(작성 예시)', '']:
+                                    current_category = category_text
+                                continue
+
+                            # 상세 행 (2열: 분야, 6열: 기술, 1열: 레벨)
+                            # colspan 값을 고려하여 파싱
+                            if len(cells) >= 2:
+                                # colspan을 고려한 실제 셀 매핑
+                                cell_idx = 0
+                                field = None
+                                skill = None
+                                level_text = None
+
+                                # 첫 번째 셀 그룹 (분야, colspan=2)
+                                if cell_idx < len(cells):
+                                    field_cell = cells[cell_idx]
+                                    field = field_cell.get_text(strip=True)
+                                    colspan = field_cell.get('colspan', '1')
+                                    cell_idx += 1
+
+                                # 두 번째 셀 그룹 (기술, colspan=6)
+                                if cell_idx < len(cells):
+                                    skill_cell = cells[cell_idx]
+                                    skill = skill_cell.get_text(strip=True)
+                                    colspan = skill_cell.get('colspan', '1')
+                                    cell_idx += 1
+
+                                # 세 번째 셀 (레벨)
+                                if cell_idx < len(cells):
+                                    level_cell = cells[cell_idx]
+                                    level_text = level_cell.get_text(strip=True)
+
+                                # 유효한 데이터가 있을 경우만 저장
+                                if field and skill and level_text:
+                                    # 예시 텍스트나 비어있는 경우 스킵
+                                    if '작성 예시' in field or '작성 예시' in skill:
+                                        continue
+                                    if field == '여기 파싱' or skill == '여기 파싱':
+                                        continue
+
+                                    # em 태그는 예시이므로 스킵
+                                    field_elem = cells[0].find('em')
+                                    skill_elem = cells[1].find('em') if len(cells) > 1 else None
+                                    if field_elem or skill_elem:
+                                        continue
+
+                                    # 레벨 숫자 추출 (1, 2, 3)
+                                    level_numbers = re.findall(r'\d+', level_text)
+                                    level = int(level_numbers[0]) if level_numbers else 0
+
+                                    # 레벨이 0이면 스킵 (비어있는 경우)
+                                    if level > 0:
+                                        tech_capabilities.append({
+                                            "category": current_category or field,
+                                            "field": field,
+                                            "skill": skill,
+                                            "level": level
+                                        })
+
             if tech_capabilities:
                 data["tech_capabilities"] = tech_capabilities
-            
-            # 기타 데이터 수집 (class 없는 데이터)
-            etc_data = {}
-            # 추가적인 파싱 로직...
-            if etc_data:
-                data["etc_data"] = etc_data
-            
+
         except Exception as e:
             error_msg = f"Parsing error for page {page_id}: {str(e)}"
             errors.append(error_msg)
             print(f"❌ {error_msg}")
-        
+            import traceback
+            errors.append(traceback.format_exc())
+
         if errors:
             data["parse_error_log"] = "\n".join(errors)
-        
+
         return data
     
     def sync_applications(self, db: Session, batch_id: Optional[str] = None, force_update: bool = False) -> Dict[str, Any]:
