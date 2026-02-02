@@ -794,7 +794,8 @@ const user = {
     id: {{ user.id }},
     username: "{{ user.username }}",
     name: "{{ user.name }}",
-    role: "{{ user.role }}"
+    role: "{{ user.role }}",
+    department_id: {{ user.department_id if user.department_id else 'null' }}
 };
 
 // 페이지 로드 시 실행

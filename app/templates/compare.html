@@ -82,6 +82,53 @@
     </div>
 </div>
 
+<!-- 평가 모달 -->
+<div id="evaluation-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeEvaluationModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fa-solid fa-pen text-blue-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="eval-modal-title">평가 작성</h3>
+                        <div class="mt-4">
+                            <form onsubmit="submitEvaluation(event)" id="eval-form">
+                                <div class="mb-4">
+                                    <label for="eval-grade" class="block text-sm font-medium text-gray-700 mb-1">등급 *</label>
+                                    <select id="eval-grade" name="grade" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" required>
+                                        <option value="">선택하세요</option>
+                                        <option value="S">S - 최우수 (탁월함)</option>
+                                        <option value="A">A - 우수 (매우 좋음)</option>
+                                        <option value="B">B - 양호 (좋음)</option>
+                                        <option value="C">C - 보통 (평범함)</option>
+                                        <option value="D">D - 미흡 (부족함)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="eval-comment" class="block text-sm font-medium text-gray-700 mb-1">심사 의견 *</label>
+                                    <textarea id="eval-comment" name="comment" rows="5" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md p-2" placeholder="구체적인 심사 의견을 작성해주세요." required></textarea>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="document.getElementById('eval-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    제출하기
+                </button>
+                <button type="button" onclick="closeEvaluationModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let allDepartments = [];
 let allApplications = [];
@@ -239,7 +286,15 @@ function renderComparison(apps) {
                 <tr>
                     <th class="p-4 text-left bg-gray-50 border border-gray-200 sticky left-0 z-10 font-bold text-gray-700 min-w-[150px]">비교 항목</th>
                     ${apps.map((app, idx) => `
-                        <th class="p-4 text-left bg-gray-50 border border-gray-200 font-bold text-gray-700 min-w-[200px]">지원서 ${idx + 1}</th>
+                        <th class="p-4 text-left bg-gray-50 border border-gray-200 font-bold text-gray-700 min-w-[200px]">
+                            <div class="flex items-center justify-between">
+                                <span>지원서 ${idx + 1}</span>
+                                <button onclick="openEvaluationModal(${app.id}, '${app.subject.replace(/'/g, "\\'")}', ${idx})"
+                                        class="ml-2 px-2 py-1 bg-blue-500 text-white rounded-md text-xs hover:bg-blue-600 transition-colors">
+                                    <i class="fa-solid fa-pen text-xs"></i> 평가
+                                </button>
+                            </div>
+                        </th>
                     `).join('')}
                 </tr>
             </thead>
@@ -304,11 +359,41 @@ function renderComparison(apps) {
                         return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.technical_feasibility || '-'}</td>`;
                     }).join('')}
                 </tr>
+
+                <!-- 사용자 평가 -->
+                <tr>
+                    <td class="p-3 bg-green-600 text-white font-bold border border-green-700 sticky left-0 z-10" colspan="${apps.length + 1}">✍️ 내 평가</td>
+                </tr>
+                <tr id="user-evaluation-row">
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">평가 등급</td>
+                    ${apps.map(app => `
+                        <td class="p-3 border border-gray-200 bg-white" id="eval-cell-${app.id}">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400 text-sm" id="eval-grade-${app.id}">미평가</span>
+                                <button onclick="openEvaluationModal(${app.id}, '${app.subject.replace(/'/g, "\\'")}', ${apps.findIndex(a => a.id === app.id)})"
+                                        class="text-blue-600 hover:text-blue-700 text-xs">
+                                    <i class="fa-solid fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">심사 의견</td>
+                    ${apps.map(app => `
+                        <td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px]">
+                            <div id="eval-comment-${app.id}" class="text-sm text-gray-400">아직 평가하지 않았습니다</div>
+                        </td>
+                    `).join('')}
+                </tr>
             </tbody>
         </table>
     `;
 
     container.innerHTML = html;
+
+    // 기존 평가 로드
+    apps.forEach(app => loadUserEvaluation(app.id));
 }
 
 function getGradeBadgeClass(grade) {
@@ -336,6 +421,123 @@ function showError(message) {
     container.innerHTML = `<div class="col-span-full text-center py-20 text-red-600"><i class="fa-solid fa-circle-exclamation text-red-400 text-5xl mb-4"></i><p>${message}</p></div>`;
 }
 
+// 평가 관련 함수
+let currentEvaluatingAppId = null;
+let currentEvaluatingAppTitle = '';
+
+function openEvaluationModal(appId, appTitle, appIndex) {
+    currentEvaluatingAppId = appId;
+    currentEvaluatingAppTitle = appTitle;
+
+    document.getElementById('eval-modal-title').textContent = `지원서 ${appIndex + 1} 평가: ${appTitle}`;
+
+    // 기존 평가가 있으면 폼에 채우기
+    loadExistingEvaluation(appId);
+
+    document.getElementById('evaluation-modal').classList.remove('hidden');
+}
+
+function closeEvaluationModal() {
+    document.getElementById('evaluation-modal').classList.add('hidden');
+    document.getElementById('eval-form').reset();
+    currentEvaluatingAppId = null;
+    currentEvaluatingAppTitle = '';
+}
+
+async function loadExistingEvaluation(appId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${appId}/evaluations`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const evaluations = await response.json();
+            const myEvaluation = evaluations.find(e => e.is_current_user);
+
+            if (myEvaluation) {
+                document.getElementById('eval-grade').value = myEvaluation.grade;
+                document.getElementById('eval-comment').value = myEvaluation.comment;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading existing evaluation:', error);
+    }
+}
+
+async function submitEvaluation(event) {
+    event.preventDefault();
+
+    const grade = document.getElementById('eval-grade').value;
+    const comment = document.getElementById('eval-comment').value;
+
+    if (!grade || !comment.trim()) {
+        alert('등급과 심사 의견을 모두 입력해주세요.');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${currentEvaluatingAppId}/evaluate`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ grade, comment })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to submit evaluation');
+        }
+
+        // 평가 성공 후 UI 업데이트
+        updateEvaluationDisplay(currentEvaluatingAppId, grade, comment);
+
+        closeEvaluationModal();
+
+        // 성공 메시지
+        alert('평가가 성공적으로 제출되었습니다!');
+
+    } catch (error) {
+        console.error('Error submitting evaluation:', error);
+        alert('평가 제출 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+}
+
+async function loadUserEvaluation(appId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${appId}/evaluations`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const evaluations = await response.json();
+            const myEvaluation = evaluations.find(e => e.is_current_user);
+
+            if (myEvaluation) {
+                updateEvaluationDisplay(appId, myEvaluation.grade, myEvaluation.comment);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading user evaluation:', error);
+    }
+}
+
+function updateEvaluationDisplay(appId, grade, comment) {
+    const gradeElement = document.getElementById(`eval-grade-${appId}`);
+    const commentElement = document.getElementById(`eval-comment-${appId}`);
+
+    if (gradeElement) {
+        gradeElement.innerHTML = `<span class="${getGradeBadgeClass(grade)}">${grade}</span>`;
+    }
+
+    if (commentElement) {
+        commentElement.innerHTML = `<div class="text-sm text-gray-700 leading-relaxed">${comment}</div>`;
+    }
+}
+
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
@@ -343,7 +545,7 @@ document.addEventListener('DOMContentLoaded', loadInitialData);
 <style>
 /* 인쇄 스타일 */
 @media print {
-    nav, footer, button, select {
+    nav, footer, button, select, #evaluation-modal {
         display: none !important;
     }
 
@@ -367,6 +569,12 @@ document.addEventListener('DOMContentLoaded', loadInitialData);
 
     .bg-blue-600 {
         background-color: #2563eb !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+    }
+
+    .bg-green-600 {
+        background-color: #059669 !important;
         color: white !important;
         -webkit-print-color-adjust: exact;
     }
