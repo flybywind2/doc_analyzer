@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+
+{% block title %}사업부 관리 - AI 과제 지원서 평가 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">사업부 관리</h2>
+            <p class="text-gray-500 mt-1">각 사업부의 지원서 현황을 관리하고 비교 분석합니다.</p>
+        </div>
+        <button onclick="showCreateForm()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <i class="fa-solid fa-plus mr-2"></i> 사업부 추가
+        </button>
+    </div>
+
+    <!-- 사업부 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200" id="departments-table">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사업부명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">설명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원서 수</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 사업부 생성/수정 모달 -->
+<div id="dept-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fa-solid fa-building text-blue-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">사업부 추가</h3>
+                        <div class="mt-4">
+                            <form id="dept-form" onsubmit="submitDepartment(event)">
+                                <input type="hidden" id="dept-id">
+                                <div class="mb-4">
+                                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">사업부명 *</label>
+                                    <input type="text" id="name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                                    <textarea id="description" rows="3" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="document.getElementById('dept-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    저장
+                </button>
+                <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 지원서 비교 모달 -->
+<div id="compare-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeCompareModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4 border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-900" id="compare-modal-title">지원서 비교</h2>
+                    <button onclick="closeCompareModal()" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <i class="fa-solid fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md compare-instructions">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-circle-info text-blue-500"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">최대 5개의 지원서를 선택하여 비교할 수 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 지원서 선택 영역 -->
+                    <div class="selection-area space-y-4">
+                        <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                            지원서 선택 <span id="selection-count" class="ml-2 text-blue-600 font-bold text-base">(0/5)</span>
+                        </h3>
+                        <div id="applications-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-1">
+                            <div class="col-span-full text-center py-10 text-gray-500">
+                                <i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 비교 버튼 -->
+                    <div class="compare-actions mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                        <button onclick="closeCompareModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            취소
+                        </button>
+                        <button id="compare-btn" onclick="showComparison()" disabled class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            선택한 지원서 비교하기
+                        </button>
+                    </div>
+                    
+                    <!-- 비교 결과 영역 -->
+                    <div id="comparison-result" class="hidden">
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">비교 결과</h3>
+                            <button onclick="resetComparison()" class="px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> 다시 선택
+                            </button>
+                        </div>
+                        <div id="comparison-content" class="overflow-x-auto pb-4"></div>
+                        
+                        <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100 comparison-actions-bottom">
+                            <button onclick="resetComparison()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fa-solid fa-rotate-left mr-2"></i> 다시 선택
+                            </button>
+                            <button onclick="printComparison()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fa-solid fa-print mr-2"></i> 인쇄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allDepartments = [];
+let departmentApplications = {};
+let selectedApplications = [];
+let currentDepartmentId = null;
+let currentDepartmentName = '';
+
+async function loadDepartments() {
+    try {
+        const token = localStorage.getItem('access_token');
+        
+        // 사업부 목록 로드
+        const deptResponse = await fetch('/api/departments', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!deptResponse.ok) throw new Error('Failed to load departments');
+        
+        allDepartments = await deptResponse.json();
+        
+        // 전체 지원서 로드 및 사업부별 그룹화
+        const appsResponse = await fetch('/api/applications', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (appsResponse.ok) {
+            const applications = await appsResponse.json();
+            
+            // 사업부별 그룹화
+            departmentApplications = {};
+            allDepartments.forEach(dept => {
+                departmentApplications[dept.id] = applications.filter(app => 
+                    app.department_id === dept.id
+                );
+            });
+        }
+        
+        const tbody = document.querySelector('#departments-table tbody');
+        
+        if (allDepartments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">사업부가 없습니다</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = allDepartments.map(dept => {
+            const appCount = departmentApplications[dept.id]?.length || 0;
+            return `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${dept.name}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">${dept.description || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${appCount}개</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                    <button onclick="openCompareModal(${dept.id}, '${dept.name}')" class="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" ${appCount < 2 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-scale-balanced"></i> 비교
+                    </button>
+                    <button onclick="editDepartment(${dept.id})" class="text-gray-600 hover:text-gray-900 transition-colors">
+                        <i class="fa-solid fa-pen-to-square"></i> 수정
+                    </button>
+                    <button onclick="deleteDepartment(${dept.id})" class="text-red-600 hover:text-red-900 transition-colors">
+                        <i class="fa-solid fa-trash"></i> 삭제
+                    </button>
+                </td>
+            </tr>
+        `}).join('');
+    } catch (error) {
+        console.error('Error loading departments:', error);
+        const tbody = document.querySelector('#departments-table tbody');
+        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-red-500">데이터를 불러오는데 실패했습니다</td></tr>';
+    }
+}
+
+function showCreateForm() {
+    document.getElementById('modal-title').textContent = '사업부 추가';
+    document.getElementById('dept-form').reset();
+    document.getElementById('dept-id').value = '';
+    document.getElementById('dept-modal').classList.remove('hidden');
+}
+
+async function editDepartment(deptId) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/departments/${deptId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load department');
+        
+        const dept = await response.json();
+        
+        document.getElementById('modal-title').textContent = '사업부 수정';
+        document.getElementById('dept-id').value = dept.id;
+        document.getElementById('name').value = dept.name;
+        document.getElementById('description').value = dept.description || '';
+        document.getElementById('dept-modal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading department:', error);
+        alert('사업부 정보를 불러오는데 실패했습니다');
+    }
+}
+
+async function submitDepartment(event) {
+    event.preventDefault();
+    
+    const deptId = document.getElementById('dept-id').value;
+    const data = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value || null
+    };
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const url = deptId ? `/api/departments/${deptId}` : '/api/departments';
+        const method = deptId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            alert(deptId ? '사업부가 수정되었습니다' : '사업부가 추가되었습니다');
+            closeModal();
+            loadDepartments();
+        } else {
+            const error = await response.json();
+            alert(`오류: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error submitting department:', error);
+        alert('오류가 발생했습니다');
+    }
+}
+
+async function deleteDepartment(deptId) {
+    if (!confirm('정말 이 사업부를 삭제하시겠습니까?')) return;
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/departments/${deptId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            alert('사업부가 삭제되었습니다');
+            loadDepartments();
+        } else {
+            const error = await response.json();
+            alert(`삭제 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error deleting department:', error);
+        alert('삭제 중 오류가 발생했습니다');
+    }
+}
+
+function closeModal() {
+    document.getElementById('dept-modal').classList.add('hidden');
+}
+
+// 비교 모달 관련 함수
+function openCompareModal(deptId, deptName) {
+    currentDepartmentId = deptId;
+    currentDepartmentName = deptName;
+    selectedApplications = [];
+    document.getElementById('compare-modal-title').textContent = `${deptName} 지원서 비교`;
+    document.getElementById('compare-modal').classList.remove('hidden');
+    document.getElementById('comparison-result').classList.add('hidden');
+    document.querySelector('.selection-area').classList.remove('hidden');
+    document.querySelector('.compare-actions').classList.remove('hidden');
+    document.querySelector('.compare-instructions').classList.remove('hidden');
+    
+    renderApplicationsList();
+}
+
+function closeCompareModal() {
+    document.getElementById('compare-modal').classList.add('hidden');
+    selectedApplications = [];
+    currentDepartmentId = null;
+}
+
+function renderApplicationsList() {
+    const apps = departmentApplications[currentDepartmentId] || [];
+    const container = document.getElementById('applications-list');
+    
+    if (apps.length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">이 사업부에 지원서가 없습니다.</div>';
+        return;
+    }
+    
+    container.innerHTML = apps.map(app => `
+        <div class="relative rounded-lg border-2 p-4 cursor-pointer transition-all hover:shadow-md ${selectedApplications.includes(app.id) ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 bg-white hover:border-blue-300'}" 
+             onclick="toggleSelection(${app.id})">
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center h-5">
+                    <input type="checkbox" ${selectedApplications.includes(app.id) ? 'checked' : ''} 
+                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                           onclick="event.stopPropagation(); toggleSelection(${app.id})">
+                </div>
+                <span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span>
+            </div>
+            <h4 class="text-sm font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">${app.subject}</h4>
+            <div class="flex flex-col gap-1 text-xs text-gray-500 mb-2">
+                <span class="flex items-center"><i class="fa-solid fa-tag w-4 text-center mr-1"></i> ${app.ai_category_primary || '미분류'}</span>
+                <span class="flex items-center"><i class="fa-solid fa-users w-4 text-center mr-1"></i> ${app.participant_count || 0}명</span>
+            </div>
+            <div class="text-xs text-gray-500 pt-2 border-t border-gray-100 line-clamp-2">
+                ${app.pain_point ? app.pain_point : 'Pain Point 없음'}
+            </div>
+        </div>
+    `).join('');
+    
+    updateSelectionCount();
+}
+
+function toggleSelection(appId) {
+    const index = selectedApplications.indexOf(appId);
+    
+    if (index > -1) {
+        selectedApplications.splice(index, 1);
+    } else {
+        if (selectedApplications.length >= 5) {
+            alert('최대 5개까지만 선택할 수 있습니다.');
+            return;
+        }
+        selectedApplications.push(appId);
+    }
+    
+    renderApplicationsList();
+}
+
+function updateSelectionCount() {
+    document.getElementById('selection-count').textContent = `(${selectedApplications.length}/5)`;
+    document.getElementById('compare-btn').disabled = selectedApplications.length < 2;
+}
+
+function showComparison() {
+    if (selectedApplications.length < 2) {
+        alert('최소 2개의 지원서를 선택해주세요.');
+        return;
+    }
+    
+    // 선택된 지원서 데이터 가져오기
+    const apps = departmentApplications[currentDepartmentId].filter(app => 
+        selectedApplications.includes(app.id)
+    );
+    
+    // 비교 결과 표시
+    document.querySelector('.selection-area').classList.add('hidden');
+    document.querySelector('.compare-actions').classList.add('hidden');
+    document.querySelector('.compare-instructions').classList.add('hidden');
+    document.getElementById('comparison-result').classList.remove('hidden');
+    
+    renderComparison(apps);
+}
+
+function renderComparison(apps) {
+    const container = document.getElementById('comparison-content');
+    
+    let html = `
+        <table class="min-w-full border-collapse text-sm">
+            <thead>
+                <tr>
+                    <th class="p-4 text-left bg-gray-50 border border-gray-200 sticky left-0 z-10 font-bold text-gray-700 min-w-[150px]">비교 항목</th>
+                    ${apps.map((app, idx) => `
+                        <th class="p-4 text-left bg-gray-50 border border-gray-200 font-bold text-gray-700 min-w-[200px]">지원서 ${idx + 1}</th>
+                    `).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 기본 정보 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">📋 기본 정보</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">과제명</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white font-bold text-gray-900">${app.subject}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 카테고리</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${app.ai_category_primary || '미분류'}</span></td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">참여 인원</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.participant_count || 0}명</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 등급</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span></td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">대표자</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.representative_name || '-'}</td>`).join('')}
+                </tr>
+                
+                <!-- 문제 및 해결방안 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🎯 문제 및 해결방안</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">Pain Point</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.pain_point || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">개선 아이디어</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.improvement_idea || '-'}</td>`).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">기대 효과</td>
+                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.expected_effect || '-'}</td>`).join('')}
+                </tr>
+                
+                <!-- AI 요약 -->
+                <tr>
+                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🤖 AI 요약</td>
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">경영효과</td>
+                    ${apps.map(app => {
+                        const detail = app.ai_evaluation_detail || {};
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.business_impact || '-'}</td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">구현 가능성</td>
+                    ${apps.map(app => {
+                        const detail = app.ai_evaluation_detail || {};
+                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.technical_feasibility || '-'}</td>`;
+                    }).join('')}
+                </tr>
+            </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function getGradeBadgeClass(grade) {
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
+    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
+    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
+function resetComparison() {
+    selectedApplications = [];
+    document.querySelector('.selection-area').classList.remove('hidden');
+    document.querySelector('.compare-actions').classList.remove('hidden');
+    document.querySelector('.compare-instructions').classList.remove('hidden');
+    document.getElementById('comparison-result').classList.add('hidden');
+    renderApplicationsList();
+}
+
+function printComparison() {
+    window.print();
+}
+
+// 페이지 로드 시 실행
+document.addEventListener('DOMContentLoaded', loadDepartments);
+</script>
+
+<style>
+/* 인쇄 스타일 */
+@media print {
+    /* base.html의 nav, sidebar 등을 숨겨야 함. Tailwind에서는 hidden 클래스 사용 */
+    nav, .page-header, .comparison-actions-bottom, .compare-actions, footer {
+        display: none !important;
+    }
+    
+    /* 모달 배경과 위치 조정 */
+    #compare-modal {
+        position: static !important;
+        background: white !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+    
+    /* 모달 내부 컨텐츠 확장 */
+    .inline-block {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+    
+    /* 스크롤 제거 */
+    .overflow-x-auto, .overflow-y-auto {
+        overflow: visible !important;
+    }
+    
+    /* 폰트 크기 조정 */
+    body {
+        font-size: 10pt;
+    }
+    
+    /* 불필요한 요소 숨김 */
+    .close-btn, .modal-header button {
+        display: none !important;
+    }
+    
+    .bg-gray-50 {
+        background-color: #f9fafb !important;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .bg-blue-600 {
+        background-color: #2563eb !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+    }
+}
+</style>
+{% endblock %}
