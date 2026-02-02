@@ -407,7 +407,8 @@ function renderTextWithImages(text) {
         const safeAlt = alt.replace(/"/g, '&quot;');
         const safeUrl = url.replace(/"/g, '&quot;');
 
-        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" onerror="this.onerror=null; this.src=''; this.alt='[이미지 로드 실패: ${safeAlt}]'; this.className='text-red-500 text-sm italic';" />`;
+        // 로컬에 저장된 이미지를 표시
+        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" />`;
     });
 
     return result;

@@ -4,10 +4,13 @@ Confluence Parser Service
 import re
 import time
 import json
+import os
+import uuid
 import requests
 import urllib3
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
+from pathlib import Path
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.application import Application
@@ -17,8 +20,66 @@ from app.services.rate_limiter import RateLimiter
 # Disable SSL warnings when verify=False is used
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Images directory
+IMAGES_DIR = Path("images")
 
-def html_to_text(element, base_url: str = "") -> str:
+
+def download_image(image_url: str, auth: tuple) -> Optional[str]:
+    """
+    Download image from Confluence and save to local images directory
+
+    Args:
+        image_url: Full URL to the image
+        auth: Confluence authentication tuple (username, password)
+
+    Returns:
+        Local file path (relative to project root) or None if failed
+    """
+    try:
+        # Create images directory if not exists
+        IMAGES_DIR.mkdir(exist_ok=True)
+
+        # Download image with authentication
+        response = requests.get(image_url, auth=auth, timeout=30, verify=False)
+        response.raise_for_status()
+
+        # Determine file extension from URL or Content-Type
+        ext = '.png'  # default
+        if '.' in image_url.split('/')[-1]:
+            url_ext = image_url.split('/')[-1].split('.')[-1].split('?')[0]
+            if url_ext.lower() in ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']:
+                ext = f'.{url_ext.lower()}'
+        else:
+            # Try to get from Content-Type header
+            content_type = response.headers.get('Content-Type', '')
+            if 'jpeg' in content_type or 'jpg' in content_type:
+                ext = '.jpg'
+            elif 'png' in content_type:
+                ext = '.png'
+            elif 'gif' in content_type:
+                ext = '.gif'
+            elif 'svg' in content_type:
+                ext = '.svg'
+            elif 'webp' in content_type:
+                ext = '.webp'
+
+        # Generate unique filename
+        filename = f"{uuid.uuid4()}{ext}"
+        filepath = IMAGES_DIR / filename
+
+        # Save image
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+
+        # Return relative path for web access
+        return f"/images/{filename}"
+
+    except Exception as e:
+        print(f"❌ Failed to download image {image_url}: {e}")
+        return None
+
+
+def html_to_text(element, base_url: str = "", auth: Optional[tuple] = None) -> str:
     """
     Convert HTML element to formatted text preserving structure
 
@@ -27,8 +88,13 @@ def html_to_text(element, base_url: str = "") -> str:
     - <p> → newline separation
     - <ul><li> → bullet points
     - <ol><li> → numbered list
-    - <img> → ![alt](url) markdown format
+    - <img> → ![alt](local_path) markdown format (downloads and saves images locally)
     - Preserves line breaks and list formatting
+
+    Args:
+        element: BeautifulSoup element to convert
+        base_url: Base URL for resolving relative URLs
+        auth: Confluence authentication tuple for downloading images
     """
     if not element:
         return ""
@@ -45,11 +111,12 @@ def html_to_text(element, base_url: str = "") -> str:
         elif elem.name == 'br':
             result.append('\n')
         elif elem.name == 'img':
-            # Handle images - convert to markdown format
+            # Handle images - download and save locally
             src = elem.get('src', '')
             alt = elem.get('alt', 'image')
 
             # Convert relative URL to absolute URL
+            img_url = None
             if src:
                 if src.startswith('http://') or src.startswith('https://'):
                     img_url = src
@@ -58,8 +125,18 @@ def html_to_text(element, base_url: str = "") -> str:
                 else:
                     img_url = f"{base_url}/{src}"
 
-                # Markdown image format
-                result.append(f'\n![{alt}]({img_url})\n')
+                # Download image and get local path
+                if img_url and auth:
+                    local_path = download_image(img_url, auth)
+                    if local_path:
+                        # Use local path in markdown
+                        result.append(f'\n![{alt}]({local_path})\n')
+                    else:
+                        # Failed to download, use original URL with note
+                        result.append(f'\n![{alt} (다운로드 실패)]({img_url})\n')
+                else:
+                    # No auth provided, use original URL
+                    result.append(f'\n![{alt}]({img_url})\n')
         elif elem.name == 'p':
             for child in elem.children:
                 process_element(child)
@@ -341,6 +418,7 @@ class ConfluenceParser:
                 섹션 번호와 키워드로 내용을 찾는 함수
                 헤더가 여러 <strong> 태그로 분리될 수 있으므로 td 전체 텍스트를 확인
                 HTML 포맷을 유지하여 줄바꿈과 리스트를 보존
+                이미지를 다운로드하여 로컬에 저장
                 """
                 # 모든 td 셀을 순회하며 섹션 헤더 찾기
                 for td in soup.find_all('td', class_='highlight-#b3d4ff'):
@@ -357,8 +435,8 @@ class ConfluenceParser:
                                 if content_row:
                                     content_cell = content_row.find('td')
                                     if content_cell:
-                                        # HTML을 포맷된 텍스트로 변환 (이미지 URL을 절대 경로로)
-                                        text = html_to_text(content_cell, self.link_base_url)
+                                        # HTML을 포맷된 텍스트로 변환 (이미지를 다운로드하여 로컬 저장)
+                                        text = html_to_text(content_cell, self.link_base_url, self.auth)
                                         if text and text != "여기 파싱":
                                             return text
                 return None
