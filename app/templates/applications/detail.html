@@ -646,18 +646,27 @@ function renderAIReport() {
                 </div>
 
                 ${aiEvaluationDetail.debate_summary ? `
-                <!-- 3.5. AI 간 논의 요약 (Debate Mode) -->
+                <!-- 3.5. AI 간 논의 요약 (3-Step Debate Mode) -->
                 <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
                     <h4 class="text-md font-bold text-purple-800 mb-3 flex items-center">
                         <i class="fa-solid fa-comments text-purple-600 mr-2"></i>
-                        AI 평가자 간 논의 결과
+                        AI 평가자 간 논의 결과 (3단계 협의)
                     </h4>
-                    <div class="text-gray-700 leading-relaxed">
+                    <div class="text-gray-700 leading-relaxed whitespace-pre-wrap">
                         ${aiEvaluationDetail.debate_summary}
                     </div>
-                    <div class="mt-2 text-xs text-purple-600">
-                        <i class="fa-solid fa-info-circle mr-1"></i>
-                        LLM A의 초기 평가를 LLM B가 검토하고 개선한 결과입니다.
+                    <div class="mt-3 bg-white bg-opacity-70 rounded p-3 text-xs">
+                        <div class="flex items-center text-purple-700 font-semibold mb-2">
+                            <i class="fa-solid fa-diagram-project mr-2"></i>
+                            평가 프로세스
+                        </div>
+                        <div class="flex items-center text-gray-600 space-x-2">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step 1: LLM A 초기 평가</span>
+                            <i class="fa-solid fa-arrow-right text-gray-400"></i>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded">Step 2: LLM B 검토</span>
+                            <i class="fa-solid fa-arrow-right text-gray-400"></i>
+                            <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Step 3: LLM A 최종 결정</span>
+                        </div>
                     </div>
                 </div>
                 ` : ''}
@@ -717,10 +726,18 @@ function renderAIReport() {
                                     color: 'gray'
                                 };
 
-                                // 앙상블 점수가 있으면 표시
-                                const scoreDisplay = data.score_a && data.score_b ?
-                                    `${score}/5 <span class="text-xs text-gray-500">(A:${data.score_a}, B:${data.score_b})</span>` :
-                                    `${score}/5`;
+                                // 3단계 debate 점수 표시
+                                let scoreDisplay;
+                                if (data.score_a_initial && data.score_b_review && data.score_a_final) {
+                                    // 3-step debate mode
+                                    scoreDisplay = `${score}/5 <span class="text-xs text-gray-500">(A₁:${data.score_a_initial} → B:${data.score_b_review} → A₂:${data.score_a_final})</span>`;
+                                } else if (data.score_a && data.score_b) {
+                                    // 2-step mode (backward compatibility)
+                                    scoreDisplay = `${score}/5 <span class="text-xs text-gray-500">(A:${data.score_a}, B:${data.score_b})</span>`;
+                                } else {
+                                    // Single LLM mode
+                                    scoreDisplay = `${score}/5`;
+                                }
 
                                 // Tailwind CSS 동적 클래스 문제 해결: 미리 정의된 클래스 사용
                                 const colorClasses = {

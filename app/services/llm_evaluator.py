@@ -311,12 +311,30 @@ class LLMEvaluator:
         # Strategy 4: Return original text (last resort)
         return text.strip()
 
+    def _print_prompt(self, llm_name: str, prompt: str, step: str = ""):
+        """Print prompt to terminal for debugging"""
+        separator = "=" * 80
+        print(f"\n{separator}")
+        print(f"🎯 {llm_name} PROMPT {step}")
+        print(f"{separator}")
+        print(prompt)
+        print(f"{separator}\n")
+
+    def _print_response(self, llm_name: str, content: str, step: str = ""):
+        """Print response to terminal for debugging"""
+        separator = "=" * 80
+        print(f"\n{separator}")
+        print(f"💬 {llm_name} RESPONSE {step}")
+        print(f"{separator}")
+        print(content)
+        print(f"{separator}\n")
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type(Exception)
     )
-    def evaluate_with_single_llm(self, llm, prompt: str, llm_name: str = "LLM") -> Dict[str, Any]:
+    def evaluate_with_single_llm(self, llm, prompt: str, llm_name: str = "LLM", step: str = "", verbose: bool = True) -> Dict[str, Any]:
         """
         Evaluate application using a single LLM with robust JSON parsing
 
@@ -324,6 +342,8 @@ class LLMEvaluator:
             llm: LLM instance to use
             prompt: Evaluation prompt
             llm_name: Name of LLM for logging
+            step: Step description for logging
+            verbose: Whether to print prompts and responses
 
         Returns:
             Evaluation result dictionary
@@ -331,11 +351,19 @@ class LLMEvaluator:
         Raises:
             Exception: If evaluation fails after retries
         """
+        # Print prompt if verbose
+        if verbose:
+            self._print_prompt(llm_name, prompt, step)
+
         # Apply rate limiting before LLM call
         self.rate_limiter.wait_if_needed()
 
         response = llm.invoke(prompt)
         content = response.content
+
+        # Print response if verbose
+        if verbose:
+            self._print_response(llm_name, content, step)
 
         # Extract JSON from response
         json_text = self._extract_json_from_text(content)
@@ -465,6 +493,132 @@ class LLMEvaluator:
 """
         return debate_prompt
 
+    def build_final_evaluation_prompt(
+        self,
+        application: Application,
+        criteria_list: List[EvaluationCriteria],
+        llm_a_result: Dict[str, Any],
+        llm_b_result: Dict[str, Any]
+    ) -> str:
+        """
+        Build final evaluation prompt for LLM A to consider LLM B's review
+
+        Args:
+            application: Application to evaluate
+            criteria_list: List of evaluation criteria
+            llm_a_result: LLM A's initial evaluation
+            llm_b_result: LLM B's review and refinement
+
+        Returns:
+            Formatted final evaluation prompt
+        """
+        department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
+
+        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
+조직: {department_info}
+
+역할: 당신의 초기 평가와 동료 평가자(LLM B)의 검토를 종합하여 최종 평가를 내립니다.
+
+중요 원칙:
+1. 당신의 초기 평가와 LLM B의 검토를 모두 고려
+2. LLM B의 지적이 타당하면 수용하고, 그렇지 않으면 근거를 제시하며 원래 평가 유지
+3. 지원서에 작성된 내용만을 기반으로 판단 (할루시네이션 금지)
+4. 최종 평가는 가장 객관적이고 공정한 결과가 되어야 함
+5. {department_info} 조직의 업무 특성을 고려
+"""
+
+        llm_a_summary = json.dumps(llm_a_result, ensure_ascii=False, indent=2)
+        llm_b_summary = json.dumps(llm_b_result, ensure_ascii=False, indent=2)
+
+        final_prompt = f"""{system_prompt}
+
+---
+
+## 지원서 정보
+
+과제명: {application.subject or 'N/A'}
+조직: {department_info}
+
+### Pain Point
+{application.pain_point or 'N/A'}
+
+### 개선 아이디어
+{application.improvement_idea or 'N/A'}
+
+### 기대 효과
+{application.expected_effect or 'N/A'}
+
+---
+
+## 평가 과정
+
+### 1단계: 당신의 초기 평가 (LLM A)
+
+```json
+{llm_a_summary}
+```
+
+### 2단계: 동료 평가자의 검토 (LLM B)
+
+```json
+{llm_b_summary}
+```
+
+---
+
+## 최종 평가 요청
+
+위 평가 과정을 검토하여 **최종 평가**를 내려주세요.
+
+### 검토 사항
+
+1. **LLM B의 지적이 타당한가?**
+   - 지원서 내용을 더 정확히 반영했는가?
+   - 놓친 중요한 내용을 발견했는가?
+   - 점수 조정이 합리적인가?
+
+2. **당신의 초기 평가를 유지할 부분은?**
+   - LLM B가 과장하거나 잘못 해석한 부분은?
+   - 초기 평가가 더 객관적이었던 부분은?
+
+3. **최종 판단**
+   - 각 평가 기준별로 최종 점수와 근거 결정
+   - 두 평가를 종합한 균형잡힌 결과 도출
+
+### 응답 형식 (JSON)
+
+**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요.
+
+```json
+{{
+  "ai_category": "예측",
+  "business_impact": "조직 관점의 경영효과 (최종 판단)",
+  "technical_feasibility": "AI 관점의 구현 가능성 (최종 판단)",
+  "five_line_summary": [
+    "1. 과제 목적",
+    "2. 현재 문제",
+    "3. 해결 방안",
+    "4. 기대 효과",
+    "5. 구현 계획"
+  ],
+  "evaluation_scores": {{
+{self._build_json_format_example(criteria_list)}
+  }},
+  "final_decision": "초기 평가와 검토 의견을 종합한 최종 판단 근거를 2-3문장으로 설명"
+}}
+```
+
+**중요 규칙:**
+1. **유효한 JSON 형식 필수**
+2. **ai_category는 정확히 하나**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습" 중 선택
+3. **evaluation_scores의 각 score는 1-5 사이의 정수**
+4. **rationale은 최종 판단 근거를 명확히 작성**
+5. **final_decision에 초기 평가와 검토 의견을 어떻게 종합했는지 설명**
+6. **JSON 내부에서 줄바꿈이 필요하면 \\n 사용**
+7. **응답은 JSON만 포함하세요**
+"""
+        return final_prompt
+
     def evaluate_with_llm(self, prompt: str) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
         """
         Evaluate application using LLM(s) with debate mode
@@ -503,48 +657,155 @@ class LLMEvaluator:
         self,
         application: Application,
         criteria_list: List[EvaluationCriteria]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Evaluate using debate mode: LLM A evaluates, then LLM B reviews and refines
+        Evaluate using 3-step debate mode: LLM A → LLM B → LLM A
 
         Args:
             application: Application to evaluate
             criteria_list: Evaluation criteria
 
         Returns:
-            Tuple of (llm_a_result, llm_b_refined_result or None)
+            Tuple of (llm_a_initial, llm_b_review, llm_a_final or None)
         """
+        print(f"\n{'='*80}")
+        print(f"🎭 Starting 3-Step Debate Mode")
+        print(f"{'='*80}\n")
+
         # Step 1: LLM A's initial evaluation
-        prompt_a = self.build_evaluation_prompt(application, criteria_list)
-        result_a = self.evaluate_with_single_llm(self.llm_a, prompt_a, "LLM A")
+        print(f"📍 STEP 1/3: LLM A - Initial Evaluation")
+        prompt_a_initial = self.build_evaluation_prompt(application, criteria_list)
+        result_a_initial = self.evaluate_with_single_llm(
+            self.llm_a,
+            prompt_a_initial,
+            "LLM A",
+            step="[Step 1/3: Initial Evaluation]"
+        )
 
         # Step 2: LLM B reviews and refines (if available)
-        result_b = None
+        result_b_review = None
+        result_a_final = None
+
         if self.llm_b:
             try:
-                print(f"🔄 LLM B reviewing and refining LLM A's evaluation...")
-                debate_prompt = self.build_debate_prompt(application, criteria_list, result_a)
-                result_b = self.evaluate_with_single_llm(self.llm_b, debate_prompt, "LLM B (Reviewer)")
-                print(f"✅ LLM B completed review and refinement")
-            except Exception as e:
-                print(f"⚠️  LLM B debate failed: {e}")
-                print(f"ℹ️  Using LLM A result only")
+                print(f"\n📍 STEP 2/3: LLM B - Review & Refinement")
+                debate_prompt = self.build_debate_prompt(application, criteria_list, result_a_initial)
+                result_b_review = self.evaluate_with_single_llm(
+                    self.llm_b,
+                    debate_prompt,
+                    "LLM B",
+                    step="[Step 2/3: Review]"
+                )
 
-        return result_a, result_b
+                # Step 3: LLM A considers LLM B's review and makes final decision
+                print(f"\n📍 STEP 3/3: LLM A - Final Decision (considering LLM B's review)")
+                final_prompt = self.build_final_evaluation_prompt(
+                    application,
+                    criteria_list,
+                    result_a_initial,
+                    result_b_review
+                )
+                result_a_final = self.evaluate_with_single_llm(
+                    self.llm_a,
+                    final_prompt,
+                    "LLM A",
+                    step="[Step 3/3: Final Decision]"
+                )
+
+                print(f"\n{'='*80}")
+                print(f"✅ 3-Step Debate Completed")
+                print(f"{'='*80}\n")
+
+            except Exception as e:
+                print(f"⚠️  Debate process failed: {e}")
+                print(f"ℹ️  Using LLM A initial result only")
+
+        return result_a_initial, result_b_review, result_a_final
     
-    def _merge_debate_results(self, result_a: Dict[str, Any], result_b: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_debate_results(
+        self,
+        result_a_initial: Dict[str, Any],
+        result_b_review: Optional[Dict[str, Any]],
+        result_a_final: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Merge debate results: Use LLM B's refined evaluation as primary,
-        but keep LLM A's scores for transparency
+        Merge 3-step debate results: Use LLM A's final decision as primary
 
         Args:
-            result_a: Result from LLM A (initial evaluation)
-            result_b: Result from LLM B (reviewed and refined)
+            result_a_initial: LLM A's initial evaluation
+            result_b_review: LLM B's review (optional)
+            result_a_final: LLM A's final decision after considering B's review (optional)
 
         Returns:
-            Merged result dictionary with both perspectives
+            Merged result dictionary with all three perspectives
         """
-        # Use LLM B's refined evaluation as the primary result
+        # If we have final decision from LLM A, use it as primary
+        if result_a_final:
+            merged = {
+                "ai_category": result_a_final.get("ai_category", result_a_initial.get("ai_category", "분류")),
+                "business_impact": result_a_final.get("business_impact", result_a_initial.get("business_impact", "")),
+                "technical_feasibility": result_a_final.get("technical_feasibility", result_a_initial.get("technical_feasibility", "")),
+                "five_line_summary": result_a_final.get("five_line_summary", result_a_initial.get("five_line_summary", [])),
+                "debate_summary": result_a_final.get("final_decision", result_b_review.get("debate_summary", "") if result_b_review else ""),
+                "evaluation_scores": {}
+            }
+
+            # Merge evaluation scores with all three perspectives
+            scores_a_initial = result_a_initial.get("evaluation_scores", {})
+            scores_b_review = result_b_review.get("evaluation_scores", {}) if result_b_review else {}
+            scores_a_final = result_a_final.get("evaluation_scores", {})
+
+            # Get all criteria keys
+            all_criteria = set(scores_a_initial.keys()) | set(scores_b_review.keys()) | set(scores_a_final.keys())
+
+            for criterion in all_criteria:
+                score_a_init_obj = scores_a_initial.get(criterion, {})
+                score_b_rev_obj = scores_b_review.get(criterion, {})
+                score_a_final_obj = scores_a_final.get(criterion, {})
+
+                score_a_init = score_a_init_obj.get("score", 0) if isinstance(score_a_init_obj, dict) else 0
+                score_b_rev = score_b_rev_obj.get("score", 0) if isinstance(score_b_rev_obj, dict) else 0
+                score_a_final = score_a_final_obj.get("score", 0) if isinstance(score_a_final_obj, dict) else 0
+
+                rationale_a_init = score_a_init_obj.get("rationale", "") if isinstance(score_a_init_obj, dict) else ""
+                rationale_b_rev = score_b_rev_obj.get("rationale", "") if isinstance(score_b_rev_obj, dict) else ""
+                rationale_a_final = score_a_final_obj.get("rationale", "") if isinstance(score_a_final_obj, dict) else ""
+
+                # Use LLM A's final score as primary
+                final_score = score_a_final if score_a_final > 0 else (score_a_init if score_a_init > 0 else 3)
+
+                # Build comprehensive rationale showing all three steps
+                rationale_parts = []
+                if score_a_init > 0:
+                    rationale_parts.append(f"[Step 1 - LLM A 초기: {score_a_init}점]\n{rationale_a_init}")
+                if score_b_rev > 0:
+                    rationale_parts.append(f"[Step 2 - LLM B 검토: {score_b_rev}점]\n{rationale_b_rev}")
+                if score_a_final > 0:
+                    rationale_parts.append(f"[Step 3 - LLM A 최종: {score_a_final}점]\n{rationale_a_final}")
+
+                combined_rationale = "\n\n".join(rationale_parts) if rationale_parts else "평가 점수를 산출할 수 없습니다."
+
+                merged["evaluation_scores"][criterion] = {
+                    "score": final_score,
+                    "rationale": combined_rationale,
+                    "score_a_initial": score_a_init,
+                    "score_b_review": score_b_rev,
+                    "score_a_final": score_a_final
+                }
+
+            print(f"✅ Merged 3-step debate results: LLM A's final decision with full context")
+            return merged
+
+        # Fallback to 2-step if no final decision
+        elif result_b_review:
+            return self._merge_2step_results(result_a_initial, result_b_review)
+
+        # Fallback to initial result if debate failed
+        else:
+            return result_a_initial
+
+    def _merge_2step_results(self, result_a: Dict[str, Any], result_b: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback: Merge 2-step results (for backward compatibility)"""
         merged = {
             "ai_category": result_b.get("ai_category", result_a.get("ai_category", "분류")),
             "business_impact": result_b.get("business_impact", result_a.get("business_impact", "")),
@@ -554,11 +815,8 @@ class LLMEvaluator:
             "evaluation_scores": {}
         }
 
-        # Merge evaluation scores with both LLM perspectives
         scores_a = result_a.get("evaluation_scores", {})
         scores_b = result_b.get("evaluation_scores", {})
-
-        # Get all criteria keys from both results
         all_criteria = set(scores_a.keys()) | set(scores_b.keys())
 
         for criterion in all_criteria:
@@ -571,21 +829,14 @@ class LLMEvaluator:
             rationale_a = score_a_obj.get("rationale", "") if isinstance(score_a_obj, dict) else ""
             rationale_b = score_b_obj.get("rationale", "") if isinstance(score_b_obj, dict) else ""
 
-            # Use LLM B's score (refined) as primary
-            if score_b > 0:
-                final_score = score_b
-                # Show debate process in rationale
-                if score_a > 0 and score_a != score_b:
-                    combined_rationale = f"[LLM A 초기 평가: {score_a}점]\n{rationale_a}\n\n[LLM B 검토 후 조정: {score_b}점]\n{rationale_b}"
-                else:
-                    combined_rationale = f"[합의된 평가: {score_b}점]\n{rationale_b}"
-            elif score_a > 0:
-                # Fallback to LLM A if B failed
-                final_score = score_a
-                combined_rationale = rationale_a
+            final_score = score_b if score_b > 0 else (score_a if score_a > 0 else 3)
+
+            if score_a > 0 and score_b > 0 and score_a != score_b:
+                combined_rationale = f"[LLM A 초기: {score_a}점]\n{rationale_a}\n\n[LLM B 검토: {score_b}점]\n{rationale_b}"
+            elif score_b > 0:
+                combined_rationale = f"[합의: {score_b}점]\n{rationale_b}"
             else:
-                final_score = 3  # Default
-                combined_rationale = "평가 점수를 산출할 수 없습니다."
+                combined_rationale = rationale_a
 
             merged["evaluation_scores"][criterion] = {
                 "score": final_score,
@@ -594,7 +845,6 @@ class LLMEvaluator:
                 "score_b": score_b
             }
 
-        print(f"✅ Merged debate results: LLM B's refined evaluation with LLM A context")
         return merged
 
     def calculate_overall_grade(self, evaluation_detail: Dict[str, Any]) -> str:
@@ -659,20 +909,25 @@ class LLMEvaluator:
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
 
             if self.llm_b:
-                # Debate mode: LLM A evaluates, LLM B reviews and refines
-                print(f"💬 Using debate mode: LLM A → LLM B (review & refine)")
-                result_a, result_b = self.evaluate_with_debate(application, criteria_list or [])
+                # 3-Step Debate mode: LLM A → LLM B → LLM A
+                print(f"💬 Using 3-step debate mode: LLM A → LLM B → LLM A")
+                result_a_initial, result_b_review, result_a_final = self.evaluate_with_debate(
+                    application,
+                    criteria_list or []
+                )
 
-                # Merge results if both LLMs returned results
-                if result_b:
-                    result = self._merge_debate_results(result_a, result_b)
-                else:
-                    result = result_a
+                # Merge results
+                result = self._merge_debate_results(result_a_initial, result_b_review, result_a_final)
             else:
                 # Single LLM mode
                 print(f"🤖 Using single LLM mode")
                 prompt = self.build_evaluation_prompt(application, criteria_list or [])
-                result_a = self.evaluate_with_single_llm(self.llm_a, prompt, "LLM A")
+                result_a = self.evaluate_with_single_llm(
+                    self.llm_a,
+                    prompt,
+                    "LLM A",
+                    step="[Single LLM Mode]"
+                )
                 result = result_a
 
             # Extract results
