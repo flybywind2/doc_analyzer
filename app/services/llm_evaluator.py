@@ -738,6 +738,19 @@ class LLMEvaluator:
                     verbose=True
                 )
 
+                # Debug: Print LLM B's evaluation_scores
+                print(f"\n{'='*80}")
+                print(f"🔍 DEBUG: LLM B evaluation_scores")
+                print(f"{'='*80}")
+                if result_b_review and "evaluation_scores" in result_b_review:
+                    for crit, data in result_b_review["evaluation_scores"].items():
+                        score = data.get("score", "N/A") if isinstance(data, dict) else "N/A"
+                        print(f"  {crit}: score={score}")
+                else:
+                    print(f"  ⚠️  WARNING: evaluation_scores not found in result_b_review")
+                    print(f"  result_b_review keys: {list(result_b_review.keys()) if result_b_review else 'None'}")
+                print(f"{'='*80}\n")
+
                 # Step 3: LLM A receives LLM B's feedback in same conversation
                 print(f"\n📍 STEP 3/3: LLM A - Final Decision (Multiturn Continue)")
 
@@ -863,6 +876,18 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
             scores_a_initial = result_a_initial.get("evaluation_scores", {})
             scores_b_review = result_b_review.get("evaluation_scores", {}) if result_b_review else {}
             scores_a_final = result_a_final.get("evaluation_scores", {})
+
+            # Debug: Check what we're merging
+            print(f"\n{'='*80}")
+            print(f"🔍 DEBUG: Merging 3-step debate results")
+            print(f"{'='*80}")
+            print(f"  scores_a_initial: {len(scores_a_initial)} criteria")
+            print(f"  scores_b_review: {len(scores_b_review)} criteria")
+            print(f"  scores_a_final: {len(scores_a_final)} criteria")
+            if len(scores_b_review) == 0:
+                print(f"  ⚠️  WARNING: scores_b_review is EMPTY!")
+                print(f"  result_b_review keys: {list(result_b_review.keys()) if result_b_review else 'None'}")
+            print(f"{'='*80}\n")
 
             # Get all criteria keys
             all_criteria = set(scores_a_initial.keys()) | set(scores_b_review.keys()) | set(scores_a_final.keys())
