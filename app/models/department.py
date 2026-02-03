@@ -19,5 +19,6 @@ class Department(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    users = relationship("User", back_populates="department")
+    users = relationship("User", back_populates="department", foreign_keys="User.department_id")  # Legacy single department
+    assigned_users = relationship("User", secondary="user_departments", back_populates="departments")  # Multiple users
     applications = relationship("Application", back_populates="department")

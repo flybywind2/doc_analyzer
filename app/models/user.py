@@ -1,10 +1,19 @@
 """
 User model
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+
+
+# Association table for User-Department many-to-many relationship
+user_departments = Table(
+    'user_departments',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('department_id', Integer, ForeignKey('departments.id', ondelete='CASCADE'), primary_key=True)
+)
 
 
 class User(Base):
@@ -24,5 +33,6 @@ class User(Base):
     last_login_at = Column(DateTime(timezone=True))
     
     # Relationships
-    department = relationship("Department", back_populates="users")
+    department = relationship("Department", back_populates="users", foreign_keys=[department_id])  # Legacy single department
+    departments = relationship("Department", secondary=user_departments, back_populates="assigned_users")  # Multiple departments
     evaluations = relationship("EvaluationHistory", back_populates="evaluator", foreign_keys="EvaluationHistory.evaluator_id")

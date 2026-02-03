@@ -74,10 +74,17 @@
                                     </select>
                                 </div>
                                 <div class="mb-4">
-                                    <label for="department_id" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
+                                    <label for="department_id" class="block text-sm font-medium text-gray-700 mb-1">사업부 (단일 선택 - 레거시)</label>
                                     <select id="department_id" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
                                         <option value="">없음</option>
                                     </select>
+                                    <p class="mt-1 text-xs text-gray-500">기존 시스템과의 호환성을 위한 단일 사업부</p>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="department_ids" class="block text-sm font-medium text-gray-700 mb-1">사업부 (복수 선택)</label>
+                                    <select id="department_ids" multiple class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2" style="min-height: 120px;">
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500">Ctrl 키를 눌러 여러 사업부 선택 가능</p>
                                 </div>
                                 <div class="mb-4">
                                     <div class="flex items-center">
@@ -124,9 +131,10 @@ async function loadDepartments() {
 }
 
 function updateDepartmentSelect() {
+    // Update single department select (legacy)
     const select = document.getElementById('department_id');
     const currentValue = select.value;
-    
+
     select.innerHTML = '<option value="">없음</option>';
     departments.forEach(dept => {
         const option = document.createElement('option');
@@ -134,10 +142,28 @@ function updateDepartmentSelect() {
         option.textContent = dept.name;
         select.appendChild(option);
     });
-    
+
     if (currentValue) {
         select.value = currentValue;
     }
+
+    // Update multiple departments select
+    const multiSelect = document.getElementById('department_ids');
+    const selectedValues = Array.from(multiSelect.selectedOptions).map(opt => opt.value);
+
+    multiSelect.innerHTML = '';
+    departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept.id;
+        option.textContent = dept.name;
+        multiSelect.appendChild(option);
+    });
+
+    // Restore selected values
+    selectedValues.forEach(value => {
+        const option = multiSelect.querySelector(`option[value="${value}"]`);
+        if (option) option.selected = true;
+    });
 }
 
 async function loadUsers() {
@@ -167,7 +193,12 @@ async function loadUsers() {
                         ${user.role === 'admin' ? '관리자' : '심사위원'}
                     </span>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.department_name || '-'}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    ${user.department_names && user.department_names.length > 0
+                        ? user.department_names.map(name => `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-1 mb-1">${name}</span>`).join('')
+                        : (user.department_name || '-')
+                    }
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                         ${user.is_active ? '활성' : '비활성'}
@@ -218,6 +249,13 @@ async function editUser(userId) {
         document.getElementById('name').value = user.name;
         document.getElementById('role').value = user.role;
         document.getElementById('department_id').value = user.department_id || '';
+
+        // Set multiple departments
+        const multiSelect = document.getElementById('department_ids');
+        Array.from(multiSelect.options).forEach(option => {
+            option.selected = user.department_ids && user.department_ids.includes(parseInt(option.value));
+        });
+
         document.getElementById('is_active').checked = user.is_active;
         document.getElementById('user-modal').classList.remove('hidden');
     } catch (error) {
@@ -231,14 +269,20 @@ async function submitUser(event) {
     
     const userId = document.getElementById('user-id').value;
     const departmentValue = document.getElementById('department_id').value;
+
+    // Get selected department IDs from multi-select
+    const multiSelect = document.getElementById('department_ids');
+    const selectedDepartmentIds = Array.from(multiSelect.selectedOptions).map(option => parseInt(option.value));
+
     const data = {
         username: document.getElementById('username').value,
         name: document.getElementById('name').value,
         role: document.getElementById('role').value,
         department_id: departmentValue && departmentValue !== '' ? parseInt(departmentValue) : null,
+        department_ids: selectedDepartmentIds.length > 0 ? selectedDepartmentIds : null,
         is_active: document.getElementById('is_active').checked
     };
-    
+
     const password = document.getElementById('password').value;
     if (password) {
         data.password = password;

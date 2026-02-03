@@ -24,14 +24,25 @@ async def list_users(
     List all users (admin only)
     """
     users = db.query(User).offset(skip).limit(limit).all()
-    
+
     result = []
     for user in users:
         user_data = UserResponse.model_validate(user)
+
+        # Legacy single department
         if user.department:
             user_data.department_name = user.department.name
+
+        # Multiple departments
+        if user.departments:
+            user_data.department_ids = [dept.id for dept in user.departments]
+            user_data.department_names = [dept.name for dept in user.departments]
+        else:
+            user_data.department_ids = []
+            user_data.department_names = []
+
         result.append(user_data)
-    
+
     return result
 
 
@@ -50,11 +61,21 @@ async def get_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     user_data = UserResponse.model_validate(user)
+
+    # Legacy single department
     if user.department:
         user_data.department_name = user.department.name
-    
+
+    # Multiple departments
+    if user.departments:
+        user_data.department_ids = [dept.id for dept in user.departments]
+        user_data.department_names = [dept.name for dept in user.departments]
+    else:
+        user_data.department_ids = []
+        user_data.department_names = []
+
     return user_data
 
 
@@ -74,8 +95,8 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already exists"
         )
-    
-    # Check if department exists
+
+    # Check if department exists (legacy single department)
     if user_data.department_id:
         dept = db.query(Department).filter(Department.id == user_data.department_id).first()
         if not dept:
@@ -83,11 +104,23 @@ async def create_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Department not found"
             )
-    
+
+    # Check if departments exist (multiple departments)
+    departments = []
+    if user_data.department_ids:
+        for dept_id in user_data.department_ids:
+            dept = db.query(Department).filter(Department.id == dept_id).first()
+            if not dept:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Department {dept_id} not found"
+                )
+            departments.append(dept)
+
     # Create user with default password if not provided
     password = user_data.password if user_data.password else user_data.username + "123!"
     password_hash = get_password_hash(password)
-    
+
     new_user = User(
         username=user_data.username,
         password_hash=password_hash,
@@ -97,15 +130,31 @@ async def create_user(
         is_active=user_data.is_active,
         is_first_login=True
     )
-    
+
     db.add(new_user)
+    db.flush()  # Get user ID before adding relationships
+
+    # Add multiple departments
+    if departments:
+        new_user.departments = departments
+
     db.commit()
     db.refresh(new_user)
-    
+
     user_response = UserResponse.model_validate(new_user)
+
+    # Legacy single department
     if new_user.department:
         user_response.department_name = new_user.department.name
-    
+
+    # Multiple departments
+    if new_user.departments:
+        user_response.department_ids = [dept.id for dept in new_user.departments]
+        user_response.department_names = [dept.name for dept in new_user.departments]
+    else:
+        user_response.department_ids = []
+        user_response.department_names = []
+
     return user_response
 
 
@@ -125,8 +174,8 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    # Check if department exists
+
+    # Check if department exists (legacy single department)
     if user_data.department_id:
         dept = db.query(Department).filter(Department.id == user_data.department_id).first()
         if not dept:
@@ -134,19 +183,45 @@ async def update_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Department not found"
             )
-    
-    # Update fields
-    update_data = user_data.model_dump(exclude_unset=True)
+
+    # Check if departments exist (multiple departments)
+    departments = []
+    if user_data.department_ids is not None:
+        for dept_id in user_data.department_ids:
+            dept = db.query(Department).filter(Department.id == dept_id).first()
+            if not dept:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Department {dept_id} not found"
+                )
+            departments.append(dept)
+
+    # Update fields (excluding department_ids which is handled separately)
+    update_data = user_data.model_dump(exclude_unset=True, exclude={'department_ids'})
     for field, value in update_data.items():
         setattr(user, field, value)
-    
+
+    # Update multiple departments if provided
+    if user_data.department_ids is not None:
+        user.departments = departments
+
     db.commit()
     db.refresh(user)
-    
+
     user_response = UserResponse.model_validate(user)
+
+    # Legacy single department
     if user.department:
         user_response.department_name = user.department.name
-    
+
+    # Multiple departments
+    if user.departments:
+        user_response.department_ids = [dept.id for dept in user.departments]
+        user_response.department_names = [dept.name for dept in user.departments]
+    else:
+        user_response.department_ids = []
+        user_response.department_names = []
+
     return user_response
 
 

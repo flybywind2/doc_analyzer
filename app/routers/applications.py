@@ -12,7 +12,7 @@ from app.database import get_db
 from app.schemas.application import (
     ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest, ConfluenceSingleSyncRequest
 )
-from app.services.auth import get_current_user, get_current_active_admin
+from app.services.auth import get_current_user, get_current_active_admin, has_department_access, get_user_department_ids
 from app.services.confluence_parser import confluence_parser
 from app.models.user import User
 from app.models.application import Application
@@ -38,20 +38,21 @@ async def list_applications(
 ):
     """
     List applications with filtering
-    
+
     Reviewers can only see their department's applications
     Admins can see all applications
     """
     query = db.query(Application)
-    
+
     # Apply permission filter
     if current_user.role != "admin":
-        if not current_user.department_id:
+        department_ids = get_user_department_ids(current_user)
+        if not department_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User has no department assigned"
             )
-        query = query.filter(Application.department_id == current_user.department_id)
+        query = query.filter(Application.department_id.in_(department_ids))
     
     # Apply filters
     if department_id:
@@ -114,10 +115,10 @@ async def get_application(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to view this application"
@@ -188,10 +189,10 @@ async def submit_user_evaluation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to evaluate this application"
@@ -255,10 +256,10 @@ async def get_application_evaluations(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to view this application"
@@ -348,20 +349,21 @@ async def export_applications_csv(
 ):
     """
     Export applications to CSV
-    
+
     Reviewers can only export their department's data
     Admins can export all data
     """
     query = db.query(Application)
-    
+
     # Apply permission filter
     if current_user.role != "admin":
-        if not current_user.department_id:
+        department_ids = get_user_department_ids(current_user)
+        if not department_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User has no department assigned"
             )
-        query = query.filter(Application.department_id == current_user.department_id)
+        query = query.filter(Application.department_id.in_(department_ids))
     elif department_id:
         query = query.filter(Application.department_id == department_id)
     
