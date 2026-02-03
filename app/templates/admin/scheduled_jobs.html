@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}스케줄 작업 관리{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+            <i class="fa-solid fa-clock mr-3 text-purple-600"></i>
+            스케줄 작업 관리
+        </h1>
+        <p class="text-gray-600">Confluence 동기화와 AI 평가를 자동으로 실행하는 스케줄을 설정합니다.</p>
+    </div>
+
+    <!-- Info Box -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex items-start">
+            <i class="fa-solid fa-info-circle text-blue-600 mt-1 mr-3"></i>
+            <div class="text-sm text-blue-800">
+                <p class="font-semibold mb-1">Cron 표현식 가이드</p>
+                <p class="mb-2">분 시 일 월 요일 형식으로 입력합니다. 예시:</p>
+                <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li><code class="bg-blue-100 px-1 rounded">0 2 * * *</code> - 매일 오전 2시</li>
+                    <li><code class="bg-blue-100 px-1 rounded">0 */6 * * *</code> - 6시간마다</li>
+                    <li><code class="bg-blue-100 px-1 rounded">0 9 * * 1</code> - 매주 월요일 오전 9시</li>
+                    <li><code class="bg-blue-100 px-1 rounded">0 0 1 * *</code> - 매월 1일 자정</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jobs List -->
+    <div id="jobs-container" class="space-y-4">
+        <!-- Jobs will be loaded here -->
+    </div>
+</div>
+
+<!-- Edit Job Modal -->
+<div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold text-gray-900">스케줄 설정</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fa-solid fa-times text-2xl"></i>
+            </button>
+        </div>
+
+        <form id="editForm" class="space-y-4">
+            <input type="hidden" id="edit-job-id">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">작업명</label>
+                <input type="text" id="edit-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" readonly>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                <textarea id="edit-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" readonly></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Cron 표현식
+                    <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="edit-cron" placeholder="0 2 * * *" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono" required>
+                <p class="text-xs text-gray-500 mt-1">분 시 일 월 요일 (예: 0 2 * * * = 매일 오전 2시)</p>
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="edit-active" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                <label for="edit-active" class="ml-2 text-sm font-medium text-gray-700">활성화</label>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                    취소
+                </button>
+                <button type="submit" class="px-4 py-2 text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition">
+                    <i class="fa-solid fa-save mr-2"></i>
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let jobs = [];
+
+// Load jobs on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadJobs();
+});
+
+async function loadJobs() {
+    try {
+        const response = await apiFetch('/api/scheduled-jobs');
+        if (response.ok) {
+            jobs = await response.json();
+            renderJobs();
+        } else {
+            showError('작업 목록 로드 실패');
+        }
+    } catch (error) {
+        console.error('Error loading jobs:', error);
+        showError('작업 목록 로드 중 오류 발생');
+    }
+}
+
+function renderJobs() {
+    const container = document.getElementById('jobs-container');
+
+    if (jobs.length === 0) {
+        container.innerHTML = `
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                <i class="fa-solid fa-clock text-gray-300 text-5xl mb-4"></i>
+                <p class="text-gray-500">등록된 스케줄 작업이 없습니다.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = jobs.map(job => `
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition">
+            <div class="p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center mb-2">
+                            <h3 class="text-lg font-bold text-gray-900">${job.name}</h3>
+                            ${job.is_active
+                                ? '<span class="ml-3 px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded-full">활성</span>'
+                                : '<span class="ml-3 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">비활성</span>'
+                            }
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">${job.description || ''}</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div class="flex items-center text-gray-700">
+                                <i class="fa-solid fa-clock text-gray-400 w-5 mr-2"></i>
+                                <span class="font-medium mr-2">스케줄:</span>
+                                <code class="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs">${job.cron_expression || '설정 안 됨'}</code>
+                            </div>
+                            <div class="flex items-center text-gray-700">
+                                <i class="fa-solid fa-arrow-right text-gray-400 w-5 mr-2"></i>
+                                <span class="font-medium mr-2">다음 실행:</span>
+                                <span class="text-gray-600">${job.next_run_at ? formatDateTime(job.next_run_at) : '-'}</span>
+                            </div>
+                            <div class="flex items-center text-gray-700">
+                                <i class="fa-solid fa-calendar-check text-gray-400 w-5 mr-2"></i>
+                                <span class="font-medium mr-2">마지막 실행:</span>
+                                <span class="text-gray-600">${job.last_run_at ? formatDateTime(job.last_run_at) : '없음'}</span>
+                            </div>
+                            <div class="flex items-center text-gray-700">
+                                <i class="fa-solid fa-chart-simple text-gray-400 w-5 mr-2"></i>
+                                <span class="font-medium mr-2">실행 통계:</span>
+                                <span class="text-gray-600">
+                                    총 ${job.total_runs}회
+                                    <span class="text-green-600">(성공 ${job.successful_runs})</span>
+                                    ${job.failed_runs > 0 ? `<span class="text-red-600">(실패 ${job.failed_runs})</span>` : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        ${job.last_run_status ? `
+                            <div class="mt-3 flex items-start">
+                                ${getStatusIcon(job.last_run_status)}
+                                <div class="ml-2 flex-1">
+                                    <span class="text-xs font-medium text-gray-700">상태: ${getStatusText(job.last_run_status)}</span>
+                                    ${job.last_run_message ? `<p class="text-xs text-gray-600 mt-1">${job.last_run_message}</p>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="ml-4 flex flex-col space-y-2">
+                        <button onclick="toggleJob(${job.id})" class="px-3 py-2 text-sm ${job.is_active ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'} rounded-lg transition">
+                            <i class="fa-solid fa-${job.is_active ? 'pause' : 'play'} mr-1"></i>
+                            ${job.is_active ? '비활성화' : '활성화'}
+                        </button>
+                        <button onclick="editJob(${job.id})" class="px-3 py-2 text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition">
+                            <i class="fa-solid fa-edit mr-1"></i>
+                            편집
+                        </button>
+                        <button onclick="runJobNow(${job.id})" class="px-3 py-2 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition">
+                            <i class="fa-solid fa-play-circle mr-1"></i>
+                            지금 실행
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        'success': '<i class="fa-solid fa-check-circle text-green-600"></i>',
+        'failed': '<i class="fa-solid fa-times-circle text-red-600"></i>',
+        'running': '<i class="fa-solid fa-spinner fa-spin text-blue-600"></i>'
+    };
+    return icons[status] || '';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'success': '성공',
+        'failed': '실패',
+        'running': '실행 중'
+    };
+    return texts[status] || status;
+}
+
+function formatDateTime(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+async function toggleJob(jobId) {
+    const job = jobs.find(j => j.id === jobId);
+    const action = job.is_active ? '비활성화' : '활성화';
+
+    if (!confirm(`이 작업을 ${action}하시겠습니까?`)) {
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`/api/scheduled-jobs/${jobId}/toggle`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            showSuccess(`작업이 ${action}되었습니다.`);
+            await loadJobs();
+        } else {
+            const error = await response.json();
+            showError(`${action} 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error toggling job:', error);
+        showError(`${action} 중 오류 발생`);
+    }
+}
+
+function editJob(jobId) {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    document.getElementById('edit-job-id').value = job.id;
+    document.getElementById('edit-name').value = job.name;
+    document.getElementById('edit-description').value = job.description || '';
+    document.getElementById('edit-cron').value = job.cron_expression || '';
+    document.getElementById('edit-active').checked = job.is_active;
+
+    document.getElementById('editModal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+    document.getElementById('editForm').reset();
+}
+
+document.getElementById('editForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const jobId = document.getElementById('edit-job-id').value;
+    const cronExpression = document.getElementById('edit-cron').value.trim();
+    const isActive = document.getElementById('edit-active').checked;
+
+    // Validate cron expression (basic check)
+    const cronParts = cronExpression.split(' ');
+    if (cronParts.length !== 5) {
+        showError('Cron 표현식은 5개의 필드로 구성되어야 합니다 (분 시 일 월 요일)');
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`/api/scheduled-jobs/${jobId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cron_expression: cronExpression,
+                is_active: isActive
+            })
+        });
+
+        if (response.ok) {
+            showSuccess('스케줄이 저장되었습니다.');
+            closeEditModal();
+            await loadJobs();
+        } else {
+            const error = await response.json();
+            showError(`저장 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error saving job:', error);
+        showError('저장 중 오류 발생');
+    }
+});
+
+async function runJobNow(jobId) {
+    const job = jobs.find(j => j.id === jobId);
+
+    if (!confirm(`'${job.name}' 작업을 지금 실행하시겠습니까?\n\n⚠️ 작업이 완료될 때까지 시간이 소요될 수 있습니다.`)) {
+        return;
+    }
+
+    try {
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 실행 중...';
+
+        const response = await apiFetch(`/api/scheduled-jobs/${jobId}/run-now`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            showSuccess('작업이 완료되었습니다.');
+            await loadJobs();
+        } else {
+            const error = await response.json();
+            showError(`실행 실패: ${error.detail}`);
+        }
+
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+
+    } catch (error) {
+        console.error('Error running job:', error);
+        showError('작업 실행 중 오류 발생');
+
+        const button = event.target.closest('button');
+        button.disabled = false;
+        button.innerHTML = '<i class="fa-solid fa-play-circle mr-1"></i> 지금 실행';
+    }
+}
+
+function showSuccess(message) {
+    alert('✅ ' + message);
+}
+
+function showError(message) {
+    alert('❌ ' + message);
+}
+</script>
+{% endblock %}

@@ -156,3 +156,20 @@ async def admin_criteria_page(
         "admin/criteria.html",
         {"request": request, "user": current_user}
     )
+
+
+@router.get("/admin/scheduled-jobs", response_class=HTMLResponse)
+async def admin_scheduled_jobs_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin scheduled jobs management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/scheduled_jobs.html",
+        {"request": request, "user": current_user}
+    )

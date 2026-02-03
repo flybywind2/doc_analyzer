@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, users, departments, categories, applications, evaluations, statistics, pages
+from app.routers import auth, users, departments, categories, applications, evaluations, statistics, pages, scheduled_jobs
 
 # Initialize database
 init_db()
@@ -50,18 +50,19 @@ app.include_router(categories.router, prefix="/api")
 app.include_router(applications.router, prefix="/api")
 app.include_router(evaluations.router, prefix="/api")
 app.include_router(statistics.router, prefix="/api")
+app.include_router(scheduled_jobs.router, prefix="/api")
 
 
 @app.on_event("startup")
 async def startup_event():
     """Startup event"""
     print(f"🚀 {settings.app_name} v{settings.app_version} started")
-    
+
     # Initialize default data
     from app.database import SessionLocal
     from app.models.init_data import init_default_data
     from app.models.generate_dummy_data import generate_dummy_data
-    
+
     db = SessionLocal()
     try:
         init_default_data(db)
@@ -69,6 +70,20 @@ async def startup_event():
         generate_dummy_data(db)
     finally:
         db.close()
+
+    # Start job scheduler
+    from app.services.scheduler import job_scheduler
+    job_scheduler.start()
+    print("⏰ Job scheduler started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown event"""
+    # Stop job scheduler
+    from app.services.scheduler import job_scheduler
+    job_scheduler.shutdown()
+    print("⏰ Job scheduler stopped")
 
 
 @app.get("/", response_class=HTMLResponse)
