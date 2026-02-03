@@ -43,16 +43,25 @@ async def run_ai_evaluation(
             query = db.query(Application).filter(Application.ai_grade.is_(None))
     
     applications = query.all()
-    
+
+    # Check if there are applications to evaluate
+    if not applications:
+        return AIEvaluationResponse(
+            success_count=0,
+            fail_count=0,
+            failed_ids=[],
+            error_messages=["No applications found to evaluate. All applications may have been already evaluated. Use force_re_evaluate=true to re-evaluate."]
+        )
+
     # Get evaluation criteria
     criteria_list = db.query(EvaluationCriteria).filter(
         EvaluationCriteria.is_active == True
     ).order_by(EvaluationCriteria.display_order).all()
-    
+
     # Get AI categories
     from app.models.category import AICategory
     categories = db.query(AICategory).filter(AICategory.is_active == True).all()
-    
+
     # Evaluate each application
     success_count = 0
     fail_count = 0
