@@ -703,6 +703,8 @@ function renderAIReport() {
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         ${(() => {
+                            console.log('🔍 Rendering evaluation_scores:', aiEvaluationDetail.evaluation_scores);
+
                             // 키별 메타데이터 매핑 (fallback용)
                             const metaMap = {
                                 innovation: { icon: 'lightbulb', label: '혁신성', color: 'yellow' },
@@ -713,6 +715,7 @@ function renderAIReport() {
 
                             // DB에 저장된 모든 평가 점수를 동적으로 렌더링
                             return Object.entries(aiEvaluationDetail.evaluation_scores).map(([key, data]) => {
+                                console.log(`  📊 Criterion: ${key}`, data);
                                 if (!data || typeof data !== 'object') return '';
 
                                 const score = data.score || 0;
@@ -739,27 +742,42 @@ function renderAIReport() {
                                     scoreDisplay = `${score}/5`;
                                 }
 
-                                // Tailwind CSS 동적 클래스 문제 해결: 미리 정의된 클래스 사용
-                                const colorClasses = {
-                                    yellow: { icon: 'text-yellow-500', score: 'text-yellow-600', bar: 'bg-yellow-500' },
-                                    green: { icon: 'text-green-500', score: 'text-green-600', bar: 'bg-green-500' },
-                                    blue: { icon: 'text-blue-500', score: 'text-blue-600', bar: 'bg-blue-500' },
-                                    purple: { icon: 'text-purple-500', score: 'text-purple-600', bar: 'bg-purple-500' },
-                                    gray: { icon: 'text-gray-500', score: 'text-gray-600', bar: 'bg-gray-500' }
-                                };
-                                const colors = colorClasses[meta.color] || colorClasses.gray;
+                                // Tailwind CSS 완전 하드코딩 (purge 방지)
+                                let iconClass, scoreClass, barClass;
+
+                                if (meta.color === 'yellow') {
+                                    iconClass = 'text-yellow-500';
+                                    scoreClass = 'text-yellow-600';
+                                    barClass = 'bg-yellow-500';
+                                } else if (meta.color === 'green') {
+                                    iconClass = 'text-green-500';
+                                    scoreClass = 'text-green-600';
+                                    barClass = 'bg-green-500';
+                                } else if (meta.color === 'blue') {
+                                    iconClass = 'text-blue-500';
+                                    scoreClass = 'text-blue-600';
+                                    barClass = 'bg-blue-500';
+                                } else if (meta.color === 'purple') {
+                                    iconClass = 'text-purple-500';
+                                    scoreClass = 'text-purple-600';
+                                    barClass = 'bg-purple-500';
+                                } else {
+                                    iconClass = 'text-gray-500';
+                                    scoreClass = 'text-gray-600';
+                                    barClass = 'bg-gray-500';
+                                }
 
                                 return `
                                     <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                         <div class="flex items-center justify-between mb-2">
                                             <div class="flex items-center">
-                                                <i class="fa-solid fa-${meta.icon} ${colors.icon} mr-2"></i>
+                                                <i class="fa-solid fa-${meta.icon} ${iconClass} mr-2"></i>
                                                 <h5 class="font-semibold text-gray-800">${meta.label}</h5>
                                             </div>
-                                            <span class="text-2xl font-bold ${colors.score}">${scoreDisplay}</span>
+                                            <span class="text-2xl font-bold ${scoreClass}">${scoreDisplay}</span>
                                         </div>
                                         <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                            <div class="${colors.bar} h-2 rounded-full" style="width: ${percentage}%"></div>
+                                            <div class="${barClass} h-2 rounded-full" style="width: ${percentage}%"></div>
                                         </div>
                                         <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${rationale}</p>
                                     </div>
@@ -772,14 +790,68 @@ function renderAIReport() {
                         S등급(4.5~5.0), A등급(3.5~4.4), B등급(2.5~3.4), C등급(1.5~2.4), D등급(1.0~1.4)
                     </div>
                 </div>
-                ` : app.ai_grade ? `
-                <!-- 구버전 평가 데이터 알림 -->
+                ` : Object.keys(aiEvaluationDetail).length > 0 && !aiEvaluationDetail.evaluation_scores ? `
+                <!-- 구버전 평가 데이터 표시 -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 class="text-md font-bold text-gray-800 mb-4 flex items-center">
+                        <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded mr-2">5</span>
+                        AI 등급 산정 근거 (구버전)
+                        <span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">이전 형식</span>
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${Object.entries(aiEvaluationDetail).filter(([key, data]) =>
+                            data && typeof data === 'object' && data.score !== undefined
+                        ).map(([key, data]) => {
+                            const score = data.score || 0;
+                            const comment = data.comment || data.rationale || '평가 근거가 없습니다.';
+                            const percentage = (score / 5) * 100;
+
+                            // 색상 할당 (순환)
+                            const colors = ['yellow', 'green', 'blue', 'purple'];
+                            const colorIndex = Object.keys(aiEvaluationDetail).indexOf(key) % colors.length;
+                            const color = colors[colorIndex];
+
+                            let iconClass, scoreClass, barClass;
+                            if (color === 'yellow') {
+                                iconClass = 'text-yellow-500';
+                                scoreClass = 'text-yellow-600';
+                                barClass = 'bg-yellow-500';
+                            } else if (color === 'green') {
+                                iconClass = 'text-green-500';
+                                scoreClass = 'text-green-600';
+                                barClass = 'bg-green-500';
+                            } else if (color === 'blue') {
+                                iconClass = 'text-blue-500';
+                                scoreClass = 'text-blue-600';
+                                barClass = 'bg-blue-500';
+                            } else {
+                                iconClass = 'text-purple-500';
+                                scoreClass = 'text-purple-600';
+                                barClass = 'bg-purple-500';
+                            }
+
+                            return `
+                                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center">
+                                            <i class="fa-solid fa-star ${iconClass} mr-2"></i>
+                                            <h5 class="font-semibold text-gray-800">${key}</h5>
+                                        </div>
+                                        <span class="text-2xl font-bold ${scoreClass}">${score}/5</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+                                        <div class="${barClass} h-2 rounded-full" style="width: ${percentage}%"></div>
+                                    </div>
+                                    <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${comment}</p>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                         <div class="flex items-start">
-                            <i class="fa-solid fa-circle-info text-yellow-500 mt-1 mr-3"></i>
-                            <div>
-                                <p class="text-sm font-semibold text-yellow-800 mb-1">이전 버전의 평가 결과입니다</p>
+                            <i class="fa-solid fa-circle-info text-yellow-600 mt-1 mr-3 flex-shrink-0"></i>
+                            <div class="text-sm text-yellow-800">
+                                <p class="font-semibold mb-1">이전 버전의 평가 결과입니다</p>
                                 <p class="text-sm text-yellow-700">상세한 평가 근거를 확인하려면 AI 재평가를 실행해주세요.</p>
                             </div>
                         </div>
