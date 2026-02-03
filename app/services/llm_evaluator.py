@@ -335,6 +335,75 @@ class LLMEvaluator:
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type(Exception)
     )
+    def _normalize_evaluation_result(self, result: Dict[str, Any], llm_name: str = "LLM") -> Dict[str, Any]:
+        """
+        Normalize LLM evaluation result structure.
+
+        Some LLMs (especially LLM B) may return evaluation criteria directly at top level
+        instead of wrapping them in "evaluation_scores". This function fixes that.
+
+        Expected format:
+        {
+            "ai_category": "...",
+            "business_impact": "...",
+            "evaluation_scores": {
+                "참여자 역량": {"score": 3, "rationale": "..."}
+            }
+        }
+
+        Incorrect format (LLM B sometimes does this):
+        {
+            "참여자 역량": {"score": 3, "rationale": "..."},
+            "실현가능성": {"score": 4, "rationale": "..."}
+            // missing evaluation_scores wrapper!
+        }
+
+        Args:
+            result: Raw result from LLM
+            llm_name: Name of LLM for logging
+
+        Returns:
+            Normalized result with evaluation_scores structure
+        """
+        # If evaluation_scores already exists, structure is correct
+        if "evaluation_scores" in result:
+            return result
+
+        print(f"⚠️  {llm_name}: evaluation_scores not found, attempting to normalize structure...")
+
+        # Find criteria-like keys (dict with "score" field)
+        evaluation_scores = {}
+        other_fields = {}
+
+        for key, value in result.items():
+            # Check if this looks like an evaluation criterion
+            if isinstance(value, dict) and "score" in value:
+                evaluation_scores[key] = value
+                print(f"   Found criterion: {key}")
+            else:
+                other_fields[key] = value
+
+        if evaluation_scores:
+            # Reconstruct with proper structure
+            normalized = {
+                "ai_category": other_fields.get("ai_category", "분류"),
+                "business_impact": other_fields.get("business_impact", ""),
+                "technical_feasibility": other_fields.get("technical_feasibility", ""),
+                "five_line_summary": other_fields.get("five_line_summary", []),
+                "evaluation_scores": evaluation_scores
+            }
+
+            # Add any extra fields
+            for key in ["debate_summary", "final_decision"]:
+                if key in other_fields:
+                    normalized[key] = other_fields[key]
+
+            print(f"✅ {llm_name}: Normalized structure with {len(evaluation_scores)} criteria")
+            return normalized
+        else:
+            print(f"⚠️  {llm_name}: No evaluation criteria found, returning original result")
+            return result
+
     def evaluate_with_single_llm(self, llm, prompt: str, llm_name: str = "LLM", step: str = "", verbose: bool = True) -> Dict[str, Any]:
         """
         Evaluate application using a single LLM with robust JSON parsing
@@ -373,6 +442,10 @@ class LLMEvaluator:
         try:
             result = json.loads(json_text)
             print(f"✅ {llm_name} JSON parsed successfully")
+
+            # Normalize structure: Fix LLM B's incorrect format
+            result = self._normalize_evaluation_result(result, llm_name)
+
             return result
         except json.JSONDecodeError as e:
             print(f"❌ {llm_name} JSON parsing error: {e}")
