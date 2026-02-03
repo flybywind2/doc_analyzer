@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.config import settings
 from app.models.application import Application
@@ -653,13 +654,14 @@ class LLMEvaluator:
 
         return result_a, result_b
 
-    def evaluate_with_debate(
+    def evaluate_with_multiturn_debate(
         self,
         application: Application,
         criteria_list: List[EvaluationCriteria]
     ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Evaluate using 3-step debate mode: LLM A → LLM B → LLM A
+        Evaluate using 3-step debate mode with multiturn conversation for LLM A
+        LLM A maintains conversation context across Step 1 and Step 3
 
         Args:
             application: Application to evaluate
@@ -669,55 +671,162 @@ class LLMEvaluator:
             Tuple of (llm_a_initial, llm_b_review, llm_a_final or None)
         """
         print(f"\n{'='*80}")
-        print(f"🎭 Starting 3-Step Debate Mode")
+        print(f"🎭 Starting 3-Step Multiturn Debate Mode")
         print(f"{'='*80}\n")
 
-        # Step 1: LLM A's initial evaluation
-        print(f"📍 STEP 1/3: LLM A - Initial Evaluation")
-        prompt_a_initial = self.build_evaluation_prompt(application, criteria_list)
-        result_a_initial = self.evaluate_with_single_llm(
-            self.llm_a,
-            prompt_a_initial,
-            "LLM A",
-            step="[Step 1/3: Initial Evaluation]"
-        )
+        # Message history for LLM A's multiturn conversation
+        llm_a_messages = []
 
-        # Step 2: LLM B reviews and refines (if available)
+        # Step 1: LLM A's initial evaluation
+        print(f"📍 STEP 1/3: LLM A - Initial Evaluation (Multiturn Start)")
+
+        department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
+
+        system_message = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
+조직: {department_info}
+
+역할: 지원서 내용을 객관적으로 요약하고 분석합니다.
+
+중요 원칙:
+1. 지원서에 작성된 내용만을 기반으로 요약 (할루시네이션 금지)
+2. {department_info} 조직의 업무 특성을 고려한 해석
+3. 사실 기반의 객관적 분석
+4. 과장하거나 추측하지 말 것
+
+**중요**: 곧 동료 평가자(LLM B)가 당신의 평가를 검토할 것입니다.
+그 후 LLM B의 의견을 듣고 최종 평가를 조정할 기회가 주어집니다."""
+
+        prompt_a_initial = self.build_evaluation_prompt(application, criteria_list)
+
+        llm_a_messages.append(SystemMessage(content=system_message))
+        llm_a_messages.append(HumanMessage(content=prompt_a_initial))
+
+        # Print and invoke
+        self._print_prompt("LLM A", system_message + "\n\n" + prompt_a_initial, "[Step 1/3: Initial Evaluation - Multiturn]")
+
+        self.rate_limiter.wait_if_needed()
+        response_a_initial = self.llm_a.invoke(llm_a_messages)
+        content_a_initial = response_a_initial.content
+
+        self._print_response("LLM A", content_a_initial, "[Step 1/3: Initial Evaluation]")
+
+        # Parse Step 1 result
+        json_text_a_initial = self._extract_json_from_text(content_a_initial)
+        try:
+            result_a_initial = json.loads(json_text_a_initial)
+            print(f"✅ LLM A Step 1 JSON parsed successfully")
+        except json.JSONDecodeError as e:
+            print(f"❌ LLM A Step 1 JSON parsing error: {e}")
+            raise
+
+        # Add LLM A's response to message history
+        llm_a_messages.append(AIMessage(content=content_a_initial))
+
+        # Step 2: LLM B reviews and refines
         result_b_review = None
         result_a_final = None
 
         if self.llm_b:
             try:
-                print(f"\n📍 STEP 2/3: LLM B - Review & Refinement")
+                print(f"\n📍 STEP 2/3: LLM B - Review & Refinement (Independent)")
                 debate_prompt = self.build_debate_prompt(application, criteria_list, result_a_initial)
                 result_b_review = self.evaluate_with_single_llm(
                     self.llm_b,
                     debate_prompt,
                     "LLM B",
-                    step="[Step 2/3: Review]"
+                    step="[Step 2/3: Review]",
+                    verbose=True
                 )
 
-                # Step 3: LLM A considers LLM B's review and makes final decision
-                print(f"\n📍 STEP 3/3: LLM A - Final Decision (considering LLM B's review)")
-                final_prompt = self.build_final_evaluation_prompt(
-                    application,
-                    criteria_list,
-                    result_a_initial,
-                    result_b_review
-                )
-                result_a_final = self.evaluate_with_single_llm(
-                    self.llm_a,
-                    final_prompt,
-                    "LLM A",
-                    step="[Step 3/3: Final Decision]"
-                )
+                # Step 3: LLM A receives LLM B's feedback in same conversation
+                print(f"\n📍 STEP 3/3: LLM A - Final Decision (Multiturn Continue)")
+
+                llm_b_summary = json.dumps(result_b_review, ensure_ascii=False, indent=2)
+
+                feedback_prompt = f"""이제 동료 평가자(LLM B)가 당신의 평가를 검토했습니다.
+
+## LLM B의 검토 의견:
+
+```json
+{llm_b_summary}```
+
+## 최종 평가 요청
+
+LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
+
+### 검토 사항
+
+1. **LLM B의 지적이 타당한가?**
+   - 지원서 내용을 더 정확히 반영했는가?
+   - 놓친 중요한 내용을 발견했는가?
+   - 점수 조정이 합리적인가?
+
+2. **당신의 초기 평가를 유지할 부분은?**
+   - LLM B가 과장하거나 잘못 해석한 부분은?
+   - 초기 평가가 더 객관적이었던 부분은?
+
+3. **최종 판단**
+   - 각 평가 기준별로 최종 점수와 근거 결정
+   - 두 평가를 종합한 균형잡힌 결과 도출
+
+### 응답 형식 (JSON)
+
+**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요.
+
+```json
+{{
+  "ai_category": "예측",
+  "business_impact": "조직 관점의 경영효과 (최종 판단)",
+  "technical_feasibility": "AI 관점의 구현 가능성 (최종 판단)",
+  "five_line_summary": [
+    "1. 과제 목적",
+    "2. 현재 문제",
+    "3. 해결 방안",
+    "4. 기대 효과",
+    "5. 구현 계획"
+  ],
+  "evaluation_scores": {{
+{self._build_json_format_example(criteria_list)}
+  }},
+  "final_decision": "초기 평가와 LLM B의 검토 의견을 종합한 최종 판단 근거를 2-3문장으로 설명"
+}}
+```
+
+**중요**:
+- LLM B의 의견에 동의하면 점수를 조정하고 이유 설명
+- LLM B의 의견에 동의하지 않으면 초기 평가를 유지하고 이유 설명
+- 부분적으로 동의하면 절충안 제시"""
+
+                llm_a_messages.append(HumanMessage(content=feedback_prompt))
+
+                # Print and invoke
+                self._print_prompt("LLM A", feedback_prompt, "[Step 3/3: Final Decision - Multiturn]")
+
+                self.rate_limiter.wait_if_needed()
+                response_a_final = self.llm_a.invoke(llm_a_messages)
+                content_a_final = response_a_final.content
+
+                self._print_response("LLM A", content_a_final, "[Step 3/3: Final Decision]")
+
+                # Parse Step 3 result
+                json_text_a_final = self._extract_json_from_text(content_a_final)
+                try:
+                    result_a_final = json.loads(json_text_a_final)
+                    print(f"✅ LLM A Step 3 JSON parsed successfully")
+                except json.JSONDecodeError as e:
+                    print(f"❌ LLM A Step 3 JSON parsing error: {e}")
+                    raise
 
                 print(f"\n{'='*80}")
-                print(f"✅ 3-Step Debate Completed")
+                print(f"✅ 3-Step Multiturn Debate Completed")
+                print(f"  - LLM A maintained conversation context across Step 1 and Step 3")
+                print(f"  - Total messages in LLM A conversation: {len(llm_a_messages) + 1}")
                 print(f"{'='*80}\n")
 
             except Exception as e:
-                print(f"⚠️  Debate process failed: {e}")
+                print(f"⚠️  Debate process failed at step 2 or 3: {e}")
+                import traceback
+                traceback.print_exc()
                 print(f"ℹ️  Using LLM A initial result only")
 
         return result_a_initial, result_b_review, result_a_final
@@ -909,9 +1018,9 @@ class LLMEvaluator:
             print(f"🤖 Evaluating application {application.id} ({application.subject})...")
 
             if self.llm_b:
-                # 3-Step Debate mode: LLM A → LLM B → LLM A
-                print(f"💬 Using 3-step debate mode: LLM A → LLM B → LLM A")
-                result_a_initial, result_b_review, result_a_final = self.evaluate_with_debate(
+                # 3-Step Multiturn Debate mode: LLM A → LLM B → LLM A (with conversation context)
+                print(f"💬 Using 3-step multiturn debate mode: LLM A (multiturn) → LLM B → LLM A (continue conversation)")
+                result_a_initial, result_b_review, result_a_final = self.evaluate_with_multiturn_debate(
                     application,
                     criteria_list or []
                 )
