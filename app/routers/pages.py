@@ -4,6 +4,8 @@ Web pages router
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.services.auth import get_current_user
 from app.models.user import User
 
@@ -51,12 +53,20 @@ async def application_detail_page(
 @router.get("/compare", response_class=HTMLResponse)
 async def compare_applications_page(
     request: Request,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Applications comparison page"""
+    from sqlalchemy.orm import joinedload
+
+    # Load user with departments relationship
+    user_with_depts = db.query(User).options(
+        joinedload(User.departments)
+    ).filter(User.id == current_user.id).first()
+
     return templates.TemplateResponse(
         "compare.html",
-        {"request": request, "user": current_user}
+        {"request": request, "user": user_with_depts or current_user}
     )
 
 

@@ -11,15 +11,23 @@
         </div>
     </div>
 
-    <!-- 사업부 선택 (관리자만 표시) -->
-    {% if user.role == 'admin' %}
+    <!-- 사업부 선택 -->
+    {% if user.role == 'admin' or (user.departments and user.departments|length > 1) %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <label for="department-select" class="block text-sm font-medium text-gray-700 mb-2">
-            <i class="fa-solid fa-building text-blue-600 mr-2"></i> 사업부 선택
+            <i class="fa-solid fa-building text-blue-600 mr-2"></i> 사업부 선택 (복수 선택 가능)
         </label>
-        <select id="department-select" onchange="loadApplicationsByDepartment()" class="mt-1 block w-full md:w-1/2 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-            <option value="">사업부를 선택하세요</option>
+        <select id="department-select" multiple onchange="loadApplicationsByDepartments()" class="mt-1 block w-full md:w-3/4 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" style="min-height: 120px;">
+            {% if user.role == 'admin' %}
+            <!-- Admin: 모든 사업부 표시 (JavaScript로 로드) -->
+            {% else %}
+            <!-- Reviewer: 자신의 사업부만 표시 -->
+            {% for dept in user.departments %}
+            <option value="{{ dept.id }}">{{ dept.name }}</option>
+            {% endfor %}
+            {% endif %}
         </select>
+        <p class="mt-1 text-xs text-gray-500">Ctrl 키를 눌러 여러 사업부 선택 가능</p>
     </div>
     {% endif %}
 
@@ -32,8 +40,8 @@
                 </div>
                 <div class="ml-3">
                     <p class="text-sm text-blue-700">
-                        {% if user.role == 'admin' %}
-                        사업부를 선택한 후, 최대 5개의 지원서를 선택하여 비교할 수 있습니다.
+                        {% if user.role == 'admin' or (user.departments and user.departments|length > 1) %}
+                        사업부를 선택한 후(복수 선택 가능), 최대 5개의 지원서를 선택하여 비교할 수 있습니다.
                         {% else %}
                         귀하의 사업부 지원서 중 최대 5개를 선택하여 비교할 수 있습니다.
                         {% endif %}
@@ -53,7 +61,7 @@
 
         <div id="applications-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[70vh] overflow-y-auto p-1">
             <div class="col-span-full text-center py-20 text-gray-500">
-                {% if user.role == 'admin' %}
+                {% if user.role == 'admin' or (user.departments and user.departments|length > 1) %}
                 <i class="fa-solid fa-building text-gray-300 text-5xl mb-4"></i>
                 <p>사업부를 선택하면 지원서 목록이 표시됩니다</p>
                 {% else %}
@@ -133,16 +141,17 @@
 let allDepartments = [];
 let allApplications = [];
 let selectedApplications = [];
-let currentDepartmentId = null;
-let currentDepartmentName = '';
+let currentDepartmentIds = [];
+let currentDepartmentNames = [];
 const userRole = '{{ user.role }}';
 const userDepartmentId = {{ user.department_id if user.department_id else 'null' }};
+const userDepartmentIds = {{ user.departments | map(attribute='id') | list | tojson if user.departments else '[]' }};
 
 async function loadInitialData() {
     try {
         const token = localStorage.getItem('access_token');
 
-        // 사업부 목록 로드 (관리자만)
+        // 사업부 목록 로드
         if (userRole === 'admin') {
             const deptResponse = await fetch('/api/departments', {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -151,14 +160,23 @@ async function loadInitialData() {
             if (deptResponse.ok) {
                 allDepartments = await deptResponse.json();
                 const select = document.getElementById('department-select');
-                select.innerHTML = '<option value="">사업부를 선택하세요</option>' +
-                    allDepartments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
+                select.innerHTML = allDepartments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
             }
         } else {
-            // 심사위원은 자동으로 자기 부서 지원서 로드
-            if (userDepartmentId) {
-                currentDepartmentId = userDepartmentId;
-                await loadApplicationsByDepartment();
+            // 심사위원
+            if (userDepartmentIds && userDepartmentIds.length > 0) {
+                // 복수 사업부가 있으면 선택 가능
+                if (userDepartmentIds.length > 1) {
+                    // 이미 템플릿에서 option들이 렌더링됨
+                } else {
+                    // 단일 사업부면 자동 로드
+                    currentDepartmentIds = [userDepartmentIds[0]];
+                    await loadApplicationsByDepartments();
+                }
+            } else if (userDepartmentId) {
+                // 레거시: department_id만 있는 경우
+                currentDepartmentIds = [userDepartmentId];
+                await loadApplicationsByDepartments();
             } else {
                 showError('사업부가 할당되지 않았습니다. 관리자에게 문의하세요.');
             }
@@ -169,34 +187,40 @@ async function loadInitialData() {
     }
 }
 
-async function loadApplicationsByDepartment() {
+async function loadApplicationsByDepartments() {
     const container = document.getElementById('applications-list');
+    const select = document.getElementById('department-select');
 
-    if (userRole === 'admin') {
-        const deptId = document.getElementById('department-select').value;
-        if (!deptId) {
-            container.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500"><i class="fa-solid fa-building text-gray-300 text-5xl mb-4"></i><p>사업부를 선택하면 지원서 목록이 표시됩니다</p></div>';
-            return;
-        }
-        currentDepartmentId = parseInt(deptId);
-        currentDepartmentName = allDepartments.find(d => d.id === currentDepartmentId)?.name || '';
+    // 선택된 사업부 ID 가져오기
+    const selectedOptions = Array.from(select.selectedOptions);
+    currentDepartmentIds = selectedOptions.map(opt => parseInt(opt.value));
+    currentDepartmentNames = selectedOptions.map(opt => opt.text);
+
+    if (currentDepartmentIds.length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500"><i class="fa-solid fa-building text-gray-300 text-5xl mb-4"></i><p>사업부를 선택하면 지원서 목록이 표시됩니다</p></div>';
+        return;
     }
 
     container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</div>';
 
     try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch(`/api/applications?department_id=${currentDepartmentId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
 
-        if (!response.ok) throw new Error('Failed to load applications');
+        // 선택된 모든 사업부의 지원서 로드
+        const promises = currentDepartmentIds.map(deptId =>
+            fetch(`/api/applications?department_id=${deptId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json())
+        );
 
-        allApplications = await response.json();
+        const results = await Promise.all(promises);
+
+        // 모든 지원서를 하나의 배열로 합치기
+        allApplications = results.flat();
         selectedApplications = [];
 
         if (allApplications.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500"><i class="fa-solid fa-folder-open text-gray-300 text-5xl mb-4"></i><p>이 사업부에 지원서가 없습니다</p></div>';
+            container.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500"><i class="fa-solid fa-folder-open text-gray-300 text-5xl mb-4"></i><p>선택한 사업부에 지원서가 없습니다</p></div>';
             return;
         }
 
@@ -226,6 +250,7 @@ function renderApplicationsList() {
                 </div>
                 ${app.ai_grade && (userRole === 'admin' || app.user_has_evaluated) ? `<span class="${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : app.ai_grade && userRole === 'reviewer' && !app.user_has_evaluated ? '<span class="text-gray-400 text-xs" title="본인 평가 후 확인 가능"><i class="fa-solid fa-lock"></i></span>' : '<span class="text-gray-400 text-xs">N/A</span>'}
             </div>
+            ${app.department_name && currentDepartmentIds.length > 1 ? `<div class="mb-2"><span class="inline-block bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded">${app.department_name}</span></div>` : ''}
             <h4 class="text-sm font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">${app.subject}</h4>
             <div class="flex flex-col gap-1 text-xs text-gray-500 mb-2">
                 <span class="flex items-center"><i class="fa-solid fa-tag w-4 text-center mr-1"></i> ${app.ai_category_primary || '미분류'}</span>
