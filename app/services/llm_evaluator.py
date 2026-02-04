@@ -186,12 +186,25 @@ class LLMEvaluator:
         if not isinstance(scores, dict):
             raise EvaluationQualityError("evaluation_scores must be a dictionary")
 
+        # Create case-insensitive lookup for scores
+        scores_lower = {k.lower(): (k, v) for k, v in scores.items()}
+
         for criterion in criteria_list:
             key = self.criteria_key_map.get(criterion.name, criterion.name)
-            if key not in scores:
-                raise EvaluationQualityError(f"Missing score for criterion: {key}")
 
-            score_data = scores[key]
+            # Try exact match first, then case-insensitive match
+            if key in scores:
+                score_data = scores[key]
+            elif key.lower() in scores_lower:
+                actual_key, score_data = scores_lower[key.lower()]
+                print(f"  ℹ️  Found '{actual_key}' for criterion '{key}' (case mismatch)")
+            else:
+                # List available keys for debugging
+                available_keys = list(scores.keys())
+                raise EvaluationQualityError(
+                    f"Missing score for criterion: {key}. Available keys: {available_keys}"
+                )
+
             if not isinstance(score_data, dict):
                 raise EvaluationQualityError(f"Score data for {key} must be a dictionary")
 
