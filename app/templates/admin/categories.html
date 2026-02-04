@@ -133,7 +133,7 @@ function renderCategories() {
             </td>
             <td class="px-6 py-4 text-sm text-gray-700">${cat.description || '-'}</td>
             <td class="px-6 py-4 text-sm text-gray-500">
-                ${cat.keywords && cat.keywords.length > 0
+                ${cat.keywords && Array.isArray(cat.keywords) && cat.keywords.length > 0
                     ? cat.keywords.map(k => `<span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded mr-1 mb-1">${k}</span>`).join('')
                     : '-'
                 }
@@ -178,7 +178,7 @@ function editCategory(categoryId) {
     document.getElementById('category-id').value = category.id;
     document.getElementById('category-name').value = category.name;
     document.getElementById('category-description').value = category.description || '';
-    document.getElementById('category-keywords').value = category.keywords ? category.keywords.join(', ') : '';
+    document.getElementById('category-keywords').value = category.keywords && Array.isArray(category.keywords) ? category.keywords.join(', ') : '';
     document.getElementById('category-order').value = category.display_order;
     document.getElementById('category-active').checked = category.is_active;
     document.getElementById('category-modal').classList.remove('hidden');
