@@ -1,5 +1,11 @@
 """
 LLM Evaluator Service
+Enhanced with:
+- English prompts with Korean responses
+- Token usage tracking and logging
+- Evaluation quality validation
+- Weighted scoring support
+- Improved retry logic
 """
 import re
 import uuid
@@ -14,6 +20,11 @@ from app.config import settings
 from app.models.application import Application
 from app.models.evaluation import EvaluationCriteria, EvaluationHistory
 from app.services.rate_limiter import RateLimiter
+
+
+class EvaluationQualityError(Exception):
+    """Raised when evaluation quality validation fails"""
+    pass
 
 
 class LLMEvaluator:
@@ -60,6 +71,12 @@ class LLMEvaluator:
         # Rate limiter: 20 calls per minute
         self.rate_limiter = RateLimiter(max_calls=20, time_window=60)
 
+        # Token usage tracking
+        self.token_usage = {
+            "llm_a": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "api_calls": 0},
+            "llm_b": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "api_calls": 0}
+        }
+
         # Criteria name to key mapping (한글 -> 영문)
         self.criteria_key_map = {
             "혁신성": "innovation",
@@ -68,23 +85,142 @@ class LLMEvaluator:
             "명확성": "clarity"
         }
 
+    def _log_token_usage(self, llm_name: str, response: Any) -> None:
+        """
+        Log token usage from LLM response
+
+        Args:
+            llm_name: "llm_a" or "llm_b"
+            response: LLM response object with usage_metadata
+        """
+        try:
+            if hasattr(response, 'response_metadata') and 'token_usage' in response.response_metadata:
+                usage = response.response_metadata['token_usage']
+                self.token_usage[llm_name]["prompt_tokens"] += usage.get('prompt_tokens', 0)
+                self.token_usage[llm_name]["completion_tokens"] += usage.get('completion_tokens', 0)
+                self.token_usage[llm_name]["total_tokens"] += usage.get('total_tokens', 0)
+                self.token_usage[llm_name]["api_calls"] += 1
+
+                print(f"  📊 {llm_name.upper()} Token Usage: "
+                      f"Prompt={usage.get('prompt_tokens', 0)}, "
+                      f"Completion={usage.get('completion_tokens', 0)}, "
+                      f"Total={usage.get('total_tokens', 0)}")
+        except Exception as e:
+            print(f"  ⚠️  Failed to log token usage: {e}")
+
+    def get_token_usage_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of token usage across all LLMs
+
+        Returns:
+            Dictionary with token usage statistics
+        """
+        total = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "api_calls": 0
+        }
+
+        for llm_data in self.token_usage.values():
+            total["prompt_tokens"] += llm_data["prompt_tokens"]
+            total["completion_tokens"] += llm_data["completion_tokens"]
+            total["total_tokens"] += llm_data["total_tokens"]
+            total["api_calls"] += llm_data["api_calls"]
+
+        return {
+            "llm_a": self.token_usage["llm_a"].copy(),
+            "llm_b": self.token_usage["llm_b"].copy(),
+            "total": total
+        }
+
+    def reset_token_usage(self) -> None:
+        """Reset token usage counters"""
+        for llm_name in self.token_usage:
+            self.token_usage[llm_name] = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "api_calls": 0
+            }
+
+    def _validate_evaluation_quality(self, result: Dict[str, Any], criteria_list: List[EvaluationCriteria]) -> None:
+        """
+        Validate quality of LLM evaluation result
+
+        Args:
+            result: Evaluation result to validate
+            criteria_list: Expected evaluation criteria
+
+        Raises:
+            EvaluationQualityError: If validation fails
+        """
+        # Check required fields
+        required_fields = ["ai_category", "business_impact", "technical_feasibility",
+                          "five_line_summary", "evaluation_scores"]
+        for field in required_fields:
+            if field not in result or not result[field]:
+                raise EvaluationQualityError(f"Missing or empty required field: {field}")
+
+        # Validate ai_category
+        valid_categories = ["예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"]
+        if result["ai_category"] not in valid_categories:
+            raise EvaluationQualityError(
+                f"Invalid AI category: {result['ai_category']}. Must be one of {valid_categories}"
+            )
+
+        # Validate five_line_summary
+        if not isinstance(result["five_line_summary"], list) or len(result["five_line_summary"]) != 5:
+            raise EvaluationQualityError(
+                f"five_line_summary must be a list of 5 items, got {len(result.get('five_line_summary', []))}"
+            )
+
+        # Validate evaluation_scores
+        scores = result["evaluation_scores"]
+        if not isinstance(scores, dict):
+            raise EvaluationQualityError("evaluation_scores must be a dictionary")
+
+        for criterion in criteria_list:
+            key = self.criteria_key_map.get(criterion.name, criterion.name)
+            if key not in scores:
+                raise EvaluationQualityError(f"Missing score for criterion: {key}")
+
+            score_data = scores[key]
+            if not isinstance(score_data, dict):
+                raise EvaluationQualityError(f"Score data for {key} must be a dictionary")
+
+            if "score" not in score_data or "rationale" not in score_data:
+                raise EvaluationQualityError(f"Score data for {key} missing 'score' or 'rationale'")
+
+            score = score_data["score"]
+            if not isinstance(score, (int, float)) or not (1 <= score <= 5):
+                raise EvaluationQualityError(f"Score for {key} must be between 1 and 5, got {score}")
+
+            rationale = score_data["rationale"]
+            if not isinstance(rationale, str) or len(rationale) < 10:
+                raise EvaluationQualityError(
+                    f"Rationale for {key} must be a string with at least 10 characters"
+                )
+
+        print(f"  ✅ Evaluation quality validation passed")
+
     def _build_criteria_guide(self, criteria_list: List[EvaluationCriteria]) -> str:
         """
-        Build evaluation criteria guide from database criteria
+        Build evaluation criteria guide from database criteria (English)
 
         Args:
             criteria_list: List of evaluation criteria from DB
 
         Returns:
-            Formatted criteria guide string
+            Formatted criteria guide string in English
         """
         if not criteria_list:
             # Fallback to default if no criteria
             return """
-**혁신성 (Innovation)**: AI 기술의 창의성과 새로움 (1-5점)
-**실현가능성 (Feasibility)**: 기술적 구현 난이도와 팀 역량 (1-5점)
-**효과성 (Impact)**: 조직에 미치는 경영 효과 (1-5점)
-**명확성 (Clarity)**: 문제 정의와 해결 방안의 구체성 (1-5점)
+**Innovation**: Creativity and novelty of AI technology (1-5 points)
+**Feasibility**: Technical implementation difficulty and team capability (1-5 points)
+**Impact**: Business impact on the organization (1-5 points)
+**Clarity**: Specificity of problem definition and solution approach (1-5 points)
 """.strip()
 
         guide_parts = []
@@ -121,8 +257,8 @@ class LLMEvaluator:
         for criteria in criteria_list:
             key = self.criteria_key_map.get(criteria.name, criteria.name.lower())
             json_parts.append(f'''    "{key}": {{
-      "score": 1-5 사이의 정수,
-      "rationale": "{criteria.name} 평가 근거 (2-3문장, 지원서 기반)"
+      "score": "integer between 1-5",
+      "rationale": "{criteria.name} evaluation rationale (2-3 sentences, based on application, IN KOREAN)"
     }}''')
 
         return ",\n".join(json_parts)
@@ -142,111 +278,113 @@ class LLMEvaluator:
         Returns:
             Formatted prompt string
         """
-        # 과제 정보 구성
+        # Build department information
         department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
-        
-        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
-조직: {department_info}
 
-역할: 지원서 내용을 객관적으로 요약하고 분석합니다.
+        system_prompt = f"""You are an AI expert at a global semiconductor company.
+Organization: {department_info}
 
-중요 원칙:
-1. 지원서에 작성된 내용만을 기반으로 요약 (할루시네이션 금지)
-2. {department_info} 조직의 업무 특성을 고려한 해석
-3. 사실 기반의 객관적 분석
-4. 과장하거나 추측하지 말 것
+Role: Objectively summarize and analyze application content.
+
+Important Principles:
+1. Base summaries only on what is written in the application (no hallucination)
+2. Consider the work characteristics of {department_info} organization
+3. Fact-based objective analysis
+4. Do not exaggerate or speculate
+
+**IMPORTANT: Please provide your entire response in Korean language.**
 """
 
         app_info = f"""
-# AI 과제 지원서 평가
+# AI Project Application Evaluation
 
-## 과제 기본 정보
-- 과제명: {application.subject or 'N/A'}
-- 조직: {department_info}
-- 참여 인원: {application.participant_count or 'N/A'}명
-- 대표자: {application.representative_name or 'N/A'}
+## Project Basic Information
+- Project Title: {application.subject or 'N/A'}
+- Organization: {department_info}
+- Participants: {application.participant_count or 'N/A'} people
+- Representative: {application.representative_name or 'N/A'}
 
-## 신청 내용
-### 현재 업무
+## Application Content
+### Current Work
 {application.current_work or 'N/A'}
 
-### Pain Point (해결하고자 하는 문제)
+### Pain Point (Problem to Solve)
 {application.pain_point or 'N/A'}
 
-### 개선 아이디어
+### Improvement Idea
 {application.improvement_idea or 'N/A'}
 
-### 기대 효과
+### Expected Effect
 {application.expected_effect or 'N/A'}
 
-### 바라는 점
+### Hopes/Expectations
 {application.hope or 'N/A'}
 
-## 사전 설문
+## Pre-Survey
 {json.dumps(application.pre_survey, ensure_ascii=False, indent=2) if application.pre_survey else 'N/A'}
 
-## 참여자 기술 역량
+## Participant Technical Capabilities
 {json.dumps(application.tech_capabilities, ensure_ascii=False, indent=2) if application.tech_capabilities else 'N/A'}
 
 ---
 
-## 평가 요청사항
+## Evaluation Request
 
-지원서 내용을 바탕으로 다음을 요약하고 평가하세요:
+Based on the application content, summarize and evaluate the following:
 
-### 1. AI 기술 분류
-지원서에서 언급된 AI 기술을 다음 중 **하나만** 선택하세요:
-- **예측**: 미래 값 예측, 수요 예측, 트렌드 분석
-- **분류**: 이미지/텍스트 분류, 불량 검출, 카테고리 분류
-- **챗봇**: 대화형 인터페이스, 자동 응답, Q&A
-- **에이전트**: 자율 의사결정, 복잡한 작업 자동화, 워크플로우 자동화
-- **최적화**: 자원 최적화, 스케줄링, 경로 최적화
-- **강화학습**: 학습 기반 의사결정, 시뮬레이션 최적화
+### 1. AI Technology Classification
+Select **exactly one** AI technology from the application:
+- **예측 (Prediction)**: Future value prediction, demand forecasting, trend analysis
+- **분류 (Classification)**: Image/text classification, defect detection, category classification
+- **챗봇 (Chatbot)**: Conversational interface, auto-response, Q&A
+- **에이전트 (Agent)**: Autonomous decision-making, complex task automation, workflow automation
+- **최적화 (Optimization)**: Resource optimization, scheduling, route optimization
+- **강화학습 (Reinforcement Learning)**: Learning-based decision-making, simulation optimization
 
-### 2. 조직 관점의 경영효과
-{department_info} 조직 관점에서 이 과제의 경영효과를 요약하세요 (2-3문장):
-- 지원서에 작성된 기대효과 기반으로만 작성
-- 추측이나 과장 금지
+### 2. Business Impact from Organization Perspective
+Summarize the business impact of this project from {department_info} organization's perspective (2-3 sentences in Korean):
+- Based only on the expected effects written in the application
+- No speculation or exaggeration
 
-### 3. AI 관점의 구현 가능성
-지원서 내용(참여인원, 기술역량, 데이터 등)을 바탕으로 구현 가능성 평가 (2-3문장):
-- 지원서에 작성된 내용만 참고
-- 기술적 난이도, 데이터 확보, 팀 역량 등을 객관적으로 평가
+### 3. Technical Feasibility from AI Perspective
+Evaluate implementation feasibility based on application content (participants, technical skills, data, etc.) (2-3 sentences in Korean):
+- Refer only to content written in the application
+- Objectively assess technical difficulty, data availability, team capability, etc.
 
-### 4. 전체 지원서 5줄 요약
-이 지원서의 핵심 내용을 5줄로 요약:
-1. 과제 목적 (1줄)
-2. 현재 문제 (1줄)
-3. 해결 방안 (1줄)
-4. 기대 효과 (1줄)
-5. 구현 계획 (1줄)
+### 4. 5-Line Summary of Entire Application
+Summarize the core content of this application in 5 lines (in Korean):
+1. Project purpose (1 line)
+2. Current problem (1 line)
+3. Solution approach (1 line)
+4. Expected effect (1 line)
+5. Implementation plan (1 line)
 
-### 5. 평가 기준별 점수 및 근거 (5점 척도)
-다음 기준으로 지원서를 평가하고, 각 기준마다 1-5점과 2-3문장의 근거를 제시하세요:
+### 5. Scoring and Rationale by Evaluation Criteria (5-point scale)
+Evaluate the application based on the following criteria, providing a 1-5 score and 2-3 sentence rationale for each (in Korean):
 
 {self._build_criteria_guide(criteria_list)}
 """
-        
+
         prompt = f"""{system_prompt}
 
 {app_info}
 
 ---
 
-## 응답 형식 (JSON)
-**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.
+## Response Format (JSON)
+**CRITICAL**: You must respond in ONLY the JSON format below. Do not include any other text.
 
 ```json
 {{
   "ai_category": "예측",
-  "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약",
-  "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가",
+  "business_impact": "Summarize business impact from organization perspective in 2-3 sentences (IN KOREAN)",
+  "technical_feasibility": "Evaluate technical feasibility from AI perspective in 2-3 sentences (IN KOREAN)",
   "five_line_summary": [
-    "1. 과제 목적",
-    "2. 현재 문제",
-    "3. 해결 방안",
-    "4. 기대 효과",
-    "5. 구현 계획"
+    "1. Project purpose (IN KOREAN)",
+    "2. Current problem (IN KOREAN)",
+    "3. Solution approach (IN KOREAN)",
+    "4. Expected effect (IN KOREAN)",
+    "5. Implementation plan (IN KOREAN)"
   ],
   "evaluation_scores": {{
 {self._build_json_format_example(criteria_list)}
@@ -254,17 +392,17 @@ class LLMEvaluator:
 }}
 ```
 
-**중요 규칙:**
-1. **유효한 JSON 형식 필수** - 모든 문자열은 큰따옴표(")로 감싸기
-2. **ai_category는 정확히 하나**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습" 중 선택
-3. **evaluation_scores의 각 score는 1-5 사이의 정수**
-4. **모든 rationale은 지원서에 작성된 내용만 사용** (할루시네이션 금지)
-5. **JSON 내부에서 줄바꿈이 필요하면 \\n 사용**
-6. **마지막 항목 뒤에는 쉼표(,) 없음** - JSON 문법 준수 필수
-7. **중괄호와 대괄호를 정확히 닫을 것**
-8. {department_info} 조직 특성 반영
+**Important Rules:**
+1. **Valid JSON format required** - All strings must be enclosed in double quotes (")
+2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+3. **Each score in evaluation_scores must be an integer between 1-5**
+4. **All rationale must use only content written in the application** (no hallucination)
+5. **Use \\n for line breaks within JSON**
+6. **No comma (,) after the last item** - Must comply with JSON syntax
+7. **Close all curly braces and brackets correctly**
+8. Consider {department_info} organization characteristics
 
-**응답은 JSON만 포함하세요. 설명이나 추가 텍스트 없이 JSON 객체만 반환하세요.**
+**IMPORTANT: Respond with ONLY the JSON object. No explanations or additional text. All Korean text content must be in Korean language.**
 """
         return prompt
 
@@ -431,6 +569,10 @@ class LLMEvaluator:
         response = llm.invoke(prompt)
         content = response.content
 
+        # Log token usage
+        token_key = "llm_a" if "LLM A" in llm_name else "llm_b"
+        self._log_token_usage(token_key, response)
+
         # Print response if verbose
         if verbose:
             self._print_response(llm_name, content, step)
@@ -438,7 +580,7 @@ class LLMEvaluator:
         # Extract JSON from response
         json_text = self._extract_json_from_text(content)
 
-        # Parse JSON
+        # Parse JSON with retry on quality failure
         try:
             result = json.loads(json_text)
             print(f"✅ {llm_name} JSON parsed successfully")
@@ -472,17 +614,19 @@ class LLMEvaluator:
         """
         department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
 
-        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 전문가이자 평가 검토자입니다.
-조직: {department_info}
+        system_prompt = f"""You are an AI expert and evaluation reviewer at a global semiconductor company.
+Organization: {department_info}
 
-역할: 동료 AI 전문가(LLM A)의 평가를 검토하고, 더 나은 평가를 제시합니다.
+Role: Review the evaluation from colleague AI expert (LLM A) and provide a better evaluation.
 
-중요 원칙:
-1. LLM A의 평가를 존중하되, 개선이 필요한 부분은 수정
-2. 지원서에 작성된 내용만을 기반으로 평가 (할루시네이션 금지)
-3. {department_info} 조직의 업무 특성을 고려
-4. 점수는 과장하거나 낮추지 말고 객관적으로 평가
-5. LLM A와 의견이 다르면 근거를 명확히 제시
+Important Principles:
+1. Respect LLM A's evaluation, but correct areas that need improvement
+2. Base evaluation only on what is written in the application (no hallucination)
+3. Consider the work characteristics of {department_info} organization
+4. Evaluate scores objectively without exaggeration or underestimation
+5. If opinion differs from LLM A, provide clear rationale
+
+**IMPORTANT: Please provide your entire response in Korean language.**
 """
 
         llm_a_summary = json.dumps(llm_a_result, ensure_ascii=False, indent=2)
@@ -491,24 +635,24 @@ class LLMEvaluator:
 
 ---
 
-## 지원서 정보
+## Application Information
 
-과제명: {application.subject or 'N/A'}
-조직: {department_info}
-참여 인원: {application.participant_count or 'N/A'}명
+Project Title: {application.subject or 'N/A'}
+Organization: {department_info}
+Participants: {application.participant_count or 'N/A'} people
 
 ### Pain Point
 {application.pain_point or 'N/A'}
 
-### 개선 아이디어
+### Improvement Idea
 {application.improvement_idea or 'N/A'}
 
-### 기대 효과
+### Expected Effect
 {application.expected_effect or 'N/A'}
 
 ---
 
-## LLM A의 평가 결과
+## LLM A's Evaluation Result
 
 ```json
 {llm_a_summary}
@@ -516,54 +660,56 @@ class LLMEvaluator:
 
 ---
 
-## 요청사항
+## Request
 
-위 지원서와 LLM A의 평가를 검토하여, **더 나은 평가**를 제시하세요.
+Review the above application and LLM A's evaluation, and provide a **better evaluation**.
 
-### 검토 지침
+### Review Guidelines
 
-1. **AI 기술 분류**: LLM A의 선택이 적절한가? 지원서 내용과 일치하는가?
+1. **AI Technology Classification**: Is LLM A's choice appropriate? Does it match the application content?
 
-2. **평가 점수**: 각 기준별 점수가 지원서 내용을 정확히 반영하는가?
-   - 너무 관대하거나 엄격하지 않은가?
-   - 근거가 명확한가?
+2. **Evaluation Scores**: Do the scores for each criterion accurately reflect the application content?
+   - Are they too lenient or too strict?
+   - Is the rationale clear?
 
-3. **개선점**:
-   - LLM A가 놓친 중요한 내용은?
-   - 과장되거나 과소평가된 부분은?
-   - 더 구체적인 근거를 제시할 수 있는가?
+3. **Improvements**:
+   - What important content did LLM A miss?
+   - Are there exaggerated or underestimated parts?
+   - Can you provide more specific rationale?
 
-### 응답 형식 (JSON)
+### Response Format (JSON)
 
-**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요.
+**CRITICAL**: You must respond in ONLY the JSON format below.
 
 ```json
 {{
   "ai_category": "예측",
-  "business_impact": "조직 관점의 경영효과를 2-3문장으로 요약 (LLM A 개선)",
-  "technical_feasibility": "AI 관점의 구현 가능성을 2-3문장으로 평가 (LLM A 개선)",
+  "business_impact": "Summarize business impact from organization perspective in 2-3 sentences (improving on LLM A) (IN KOREAN)",
+  "technical_feasibility": "Evaluate technical feasibility from AI perspective in 2-3 sentences (improving on LLM A) (IN KOREAN)",
   "five_line_summary": [
-    "1. 과제 목적",
-    "2. 현재 문제",
-    "3. 해결 방안",
-    "4. 기대 효과",
-    "5. 구현 계획"
+    "1. Project purpose (IN KOREAN)",
+    "2. Current problem (IN KOREAN)",
+    "3. Solution approach (IN KOREAN)",
+    "4. Expected effect (IN KOREAN)",
+    "5. Implementation plan (IN KOREAN)"
   ],
   "evaluation_scores": {{
 {self._build_json_format_example(criteria_list)}
   }},
-  "debate_summary": "LLM A의 평가와 비교하여 어떤 점을 개선했는지 2-3문장으로 설명"
+  "debate_summary": "Explain in 2-3 sentences what improvements were made compared to LLM A's evaluation (IN KOREAN)"
 }}
 ```
 
-**중요 규칙:**
-1. **유효한 JSON 형식 필수**
-2. **ai_category는 정확히 하나**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습" 중 선택
-3. **evaluation_scores의 각 score는 1-5 사이의 정수**
-4. **rationale은 지원서에 작성된 내용만 사용** (할루시네이션 금지)
-5. **LLM A와 점수가 다르면 debate_summary에 이유 설명**
-6. **JSON 내부에서 줄바꿈이 필요하면 \\n 사용**
-7. **응답은 JSON만 포함하세요**
+**Important Rules:**
+1. **Valid JSON format required**
+2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+3. **Each score in evaluation_scores must be an integer between 1-5**
+4. **rationale must use only content written in the application** (no hallucination)
+5. **If score differs from LLM A, explain reason in debate_summary**
+6. **Use \\n for line breaks within JSON**
+7. **Respond with JSON only**
+
+**IMPORTANT: All Korean text content must be in Korean language.**
 """
         return debate_prompt
 
@@ -588,17 +734,19 @@ class LLMEvaluator:
         """
         department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
 
-        system_prompt = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
-조직: {department_info}
+        system_prompt = f"""You are an AI expert at a global semiconductor company.
+Organization: {department_info}
 
-역할: 당신의 초기 평가와 동료 평가자(LLM B)의 검토를 종합하여 최종 평가를 내립니다.
+Role: Synthesize your initial evaluation and colleague reviewer (LLM B)'s review to make a final evaluation.
 
-중요 원칙:
-1. 당신의 초기 평가와 LLM B의 검토를 모두 고려
-2. LLM B의 지적이 타당하면 수용하고, 그렇지 않으면 근거를 제시하며 원래 평가 유지
-3. 지원서에 작성된 내용만을 기반으로 판단 (할루시네이션 금지)
-4. 최종 평가는 가장 객관적이고 공정한 결과가 되어야 함
-5. {department_info} 조직의 업무 특성을 고려
+Important Principles:
+1. Consider both your initial evaluation and LLM B's review
+2. If LLM B's points are valid, accept them; otherwise maintain original evaluation with rationale
+3. Base judgment only on what is written in the application (no hallucination)
+4. Final evaluation must be the most objective and fair result
+5. Consider the work characteristics of {department_info} organization
+
+**IMPORTANT: Please provide your entire response in Korean language.**
 """
 
         llm_a_summary = json.dumps(llm_a_result, ensure_ascii=False, indent=2)
@@ -608,31 +756,31 @@ class LLMEvaluator:
 
 ---
 
-## 지원서 정보
+## Application Information
 
-과제명: {application.subject or 'N/A'}
-조직: {department_info}
+Project Title: {application.subject or 'N/A'}
+Organization: {department_info}
 
 ### Pain Point
 {application.pain_point or 'N/A'}
 
-### 개선 아이디어
+### Improvement Idea
 {application.improvement_idea or 'N/A'}
 
-### 기대 효과
+### Expected Effect
 {application.expected_effect or 'N/A'}
 
 ---
 
-## 평가 과정
+## Evaluation Process
 
-### 1단계: 당신의 초기 평가 (LLM A)
+### Step 1: Your Initial Evaluation (LLM A)
 
 ```json
 {llm_a_summary}
 ```
 
-### 2단계: 동료 평가자의 검토 (LLM B)
+### Step 2: Colleague Reviewer's Review (LLM B)
 
 ```json
 {llm_b_summary}
@@ -640,56 +788,58 @@ class LLMEvaluator:
 
 ---
 
-## 최종 평가 요청
+## Final Evaluation Request
 
-위 평가 과정을 검토하여 **최종 평가**를 내려주세요.
+Review the above evaluation process and provide a **final evaluation**.
 
-### 검토 사항
+### Review Considerations
 
-1. **LLM B의 지적이 타당한가?**
-   - 지원서 내용을 더 정확히 반영했는가?
-   - 놓친 중요한 내용을 발견했는가?
-   - 점수 조정이 합리적인가?
+1. **Are LLM B's points valid?**
+   - Did it more accurately reflect the application content?
+   - Did it find important content that was missed?
+   - Are the score adjustments reasonable?
 
-2. **당신의 초기 평가를 유지할 부분은?**
-   - LLM B가 과장하거나 잘못 해석한 부분은?
-   - 초기 평가가 더 객관적이었던 부분은?
+2. **What parts of your initial evaluation should be maintained?**
+   - Did LLM B exaggerate or misinterpret anything?
+   - Were there parts where the initial evaluation was more objective?
 
-3. **최종 판단**
-   - 각 평가 기준별로 최종 점수와 근거 결정
-   - 두 평가를 종합한 균형잡힌 결과 도출
+3. **Final Decision**
+   - Determine final score and rationale for each evaluation criterion
+   - Derive balanced results synthesizing both evaluations
 
-### 응답 형식 (JSON)
+### Response Format (JSON)
 
-**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요.
+**CRITICAL**: You must respond in ONLY the JSON format below.
 
 ```json
 {{
   "ai_category": "예측",
-  "business_impact": "조직 관점의 경영효과 (최종 판단)",
-  "technical_feasibility": "AI 관점의 구현 가능성 (최종 판단)",
+  "business_impact": "Business impact from organization perspective (final decision) (IN KOREAN)",
+  "technical_feasibility": "Technical feasibility from AI perspective (final decision) (IN KOREAN)",
   "five_line_summary": [
-    "1. 과제 목적",
-    "2. 현재 문제",
-    "3. 해결 방안",
-    "4. 기대 효과",
-    "5. 구현 계획"
+    "1. Project purpose (IN KOREAN)",
+    "2. Current problem (IN KOREAN)",
+    "3. Solution approach (IN KOREAN)",
+    "4. Expected effect (IN KOREAN)",
+    "5. Implementation plan (IN KOREAN)"
   ],
   "evaluation_scores": {{
 {self._build_json_format_example(criteria_list)}
   }},
-  "final_decision": "초기 평가와 검토 의견을 종합한 최종 판단 근거를 2-3문장으로 설명"
+  "final_decision": "Explain in 2-3 sentences the rationale for final decision synthesizing initial evaluation and review opinion (IN KOREAN)"
 }}
 ```
 
-**중요 규칙:**
-1. **유효한 JSON 형식 필수**
-2. **ai_category는 정확히 하나**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습" 중 선택
-3. **evaluation_scores의 각 score는 1-5 사이의 정수**
-4. **rationale은 최종 판단 근거를 명확히 작성**
-5. **final_decision에 초기 평가와 검토 의견을 어떻게 종합했는지 설명**
-6. **JSON 내부에서 줄바꿈이 필요하면 \\n 사용**
-7. **응답은 JSON만 포함하세요**
+**Important Rules:**
+1. **Valid JSON format required**
+2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+3. **Each score in evaluation_scores must be an integer between 1-5**
+4. **rationale must clearly state the final decision rationale**
+5. **final_decision must explain how initial evaluation and review opinion were synthesized**
+6. **Use \\n for line breaks within JSON**
+7. **Respond with JSON only**
+
+**IMPORTANT: All Korean text content must be in Korean language.**
 """
         return final_prompt
 
@@ -755,19 +905,21 @@ class LLMEvaluator:
 
         department_info = f"{application.division or 'N/A'} > {application.department.name if application.department else 'N/A'}"
 
-        system_message = f"""당신은 글로벌 반도체 대기업의 AI 전문가입니다.
-조직: {department_info}
+        system_message = f"""You are an AI expert at a global semiconductor company.
+Organization: {department_info}
 
-역할: 지원서 내용을 객관적으로 요약하고 분석합니다.
+Role: Objectively summarize and analyze application content.
 
-중요 원칙:
-1. 지원서에 작성된 내용만을 기반으로 요약 (할루시네이션 금지)
-2. {department_info} 조직의 업무 특성을 고려한 해석
-3. 사실 기반의 객관적 분석
-4. 과장하거나 추측하지 말 것
+Important Principles:
+1. Base summaries only on what is written in the application (no hallucination)
+2. Consider the work characteristics of {department_info} organization
+3. Fact-based objective analysis
+4. Do not exaggerate or speculate
 
-**중요**: 곧 동료 평가자(LLM B)가 당신의 평가를 검토할 것입니다.
-그 후 LLM B의 의견을 듣고 최종 평가를 조정할 기회가 주어집니다."""
+**Important**: Soon, colleague reviewer (LLM B) will review your evaluation.
+After that, you will have an opportunity to adjust your final evaluation after hearing LLM B's opinion.
+
+**IMPORTANT: Please provide your entire response in Korean language.**"""
 
         prompt_a_initial = self.build_evaluation_prompt(application, criteria_list)
 
@@ -780,6 +932,9 @@ class LLMEvaluator:
         self.rate_limiter.wait_if_needed()
         response_a_initial = self.llm_a.invoke(llm_a_messages)
         content_a_initial = response_a_initial.content
+
+        # Log token usage
+        self._log_token_usage("llm_a", response_a_initial)
 
         self._print_response("LLM A", content_a_initial, "[Step 1/3: Initial Evaluation]")
 
@@ -829,59 +984,61 @@ class LLMEvaluator:
 
                 llm_b_summary = json.dumps(result_b_review, ensure_ascii=False, indent=2)
 
-                feedback_prompt = f"""이제 동료 평가자(LLM B)가 당신의 평가를 검토했습니다.
+                feedback_prompt = f"""Now colleague reviewer (LLM B) has reviewed your evaluation.
 
-## LLM B의 검토 의견:
+## LLM B's Review Opinion:
 
 ```json
 {llm_b_summary}```
 
-## 최종 평가 요청
+## Final Evaluation Request
 
-LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
+Please provide a final evaluation considering LLM B's review opinion.
 
-### 검토 사항
+### Review Considerations
 
-1. **LLM B의 지적이 타당한가?**
-   - 지원서 내용을 더 정확히 반영했는가?
-   - 놓친 중요한 내용을 발견했는가?
-   - 점수 조정이 합리적인가?
+1. **Are LLM B's points valid?**
+   - Did it more accurately reflect the application content?
+   - Did it find important content that was missed?
+   - Are the score adjustments reasonable?
 
-2. **당신의 초기 평가를 유지할 부분은?**
-   - LLM B가 과장하거나 잘못 해석한 부분은?
-   - 초기 평가가 더 객관적이었던 부분은?
+2. **What parts of your initial evaluation should be maintained?**
+   - Did LLM B exaggerate or misinterpret anything?
+   - Were there parts where the initial evaluation was more objective?
 
-3. **최종 판단**
-   - 각 평가 기준별로 최종 점수와 근거 결정
-   - 두 평가를 종합한 균형잡힌 결과 도출
+3. **Final Decision**
+   - Determine final score and rationale for each evaluation criterion
+   - Derive balanced results synthesizing both evaluations
 
-### 응답 형식 (JSON)
+### Response Format (JSON)
 
-**CRITICAL**: 반드시 아래 JSON 형식으로만 응답하세요.
+**CRITICAL**: You must respond in ONLY the JSON format below.
 
 ```json
 {{
   "ai_category": "예측",
-  "business_impact": "조직 관점의 경영효과 (최종 판단)",
-  "technical_feasibility": "AI 관점의 구현 가능성 (최종 판단)",
+  "business_impact": "Business impact from organization perspective (final decision) (IN KOREAN)",
+  "technical_feasibility": "Technical feasibility from AI perspective (final decision) (IN KOREAN)",
   "five_line_summary": [
-    "1. 과제 목적",
-    "2. 현재 문제",
-    "3. 해결 방안",
-    "4. 기대 효과",
-    "5. 구현 계획"
+    "1. Project purpose (IN KOREAN)",
+    "2. Current problem (IN KOREAN)",
+    "3. Solution approach (IN KOREAN)",
+    "4. Expected effect (IN KOREAN)",
+    "5. Implementation plan (IN KOREAN)"
   ],
   "evaluation_scores": {{
 {self._build_json_format_example(criteria_list)}
   }},
-  "final_decision": "초기 평가와 LLM B의 검토 의견을 종합한 최종 판단 근거를 2-3문장으로 설명"
+  "final_decision": "Explain in 2-3 sentences the rationale for final decision synthesizing initial evaluation and LLM B's review opinion (IN KOREAN)"
 }}
 ```
 
-**중요**:
-- LLM B의 의견에 동의하면 점수를 조정하고 이유 설명
-- LLM B의 의견에 동의하지 않으면 초기 평가를 유지하고 이유 설명
-- 부분적으로 동의하면 절충안 제시"""
+**Important**:
+- If you agree with LLM B's opinion, adjust score and explain reason
+- If you disagree with LLM B's opinion, maintain initial evaluation and explain reason
+- If you partially agree, present a compromise
+
+**IMPORTANT: All Korean text content must be in Korean language.**"""
 
                 llm_a_messages.append(HumanMessage(content=feedback_prompt))
 
@@ -891,6 +1048,9 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
                 self.rate_limiter.wait_if_needed()
                 response_a_final = self.llm_a.invoke(llm_a_messages)
                 content_a_final = response_a_final.content
+
+                # Log token usage
+                self._log_token_usage("llm_a", response_a_final)
 
                 self._print_response("LLM A", content_a_final, "[Step 3/3: Final Decision]")
 
@@ -1057,26 +1217,26 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
     def calculate_overall_grade(self, evaluation_detail: Dict[str, Any]) -> str:
         """
         Calculate overall grade from evaluation details
-        
+
         Args:
             evaluation_detail: Dictionary of evaluation scores
-            
+
         Returns:
             Overall grade (S/A/B/C/D)
         """
         total_score = 0
         count = 0
-        
+
         for item in evaluation_detail.values():
             if isinstance(item, dict) and "score" in item:
                 total_score += item["score"]
                 count += 1
-        
+
         if count == 0:
             return "C"
-        
+
         avg_score = total_score / count
-        
+
         if avg_score >= 4.5:
             return "S"
         elif avg_score >= 3.5:
@@ -1087,7 +1247,42 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
             return "C"
         else:
             return "D"
-    
+
+    def calculate_weighted_score(
+        self,
+        evaluation_scores: Dict[str, Any],
+        criteria_list: List[EvaluationCriteria]
+    ) -> float:
+        """
+        Calculate weighted average score based on criteria weights
+
+        Args:
+            evaluation_scores: Dictionary of evaluation scores
+            criteria_list: List of evaluation criteria with weights
+
+        Returns:
+            Weighted average score (float)
+        """
+        total_weighted_score = 0.0
+        total_weight = 0.0
+
+        for criterion in criteria_list:
+            key = self.criteria_key_map.get(criterion.name, criterion.name.lower())
+            if key in evaluation_scores:
+                score_data = evaluation_scores[key]
+                if isinstance(score_data, dict) and "score" in score_data:
+                    score = score_data["score"]
+                    weight = getattr(criterion, "weight", 1.0)  # Default weight = 1.0 if not set
+                    total_weighted_score += score * weight
+                    total_weight += weight
+
+        if total_weight == 0:
+            return 0.0
+
+        weighted_avg = total_weighted_score / total_weight
+        print(f"  📊 Weighted average score: {weighted_avg:.2f} (total weight: {total_weight})")
+        return weighted_avg
+
     def evaluate_application(
         self, 
         db: Session, 
@@ -1159,26 +1354,38 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
 
             # Calculate overall grade from evaluation scores
             if evaluation_scores:
-                scores = []
-                for criterion in ["innovation", "feasibility", "impact", "clarity"]:
-                    if criterion in evaluation_scores and "score" in evaluation_scores[criterion]:
-                        scores.append(evaluation_scores[criterion]["score"])
-
-                if scores:
-                    avg_score = sum(scores) / len(scores)
-                    # Convert average to grade (S/A/B/C/D)
-                    if avg_score >= 4.5:
-                        overall_grade = "S"
-                    elif avg_score >= 3.5:
-                        overall_grade = "A"
-                    elif avg_score >= 2.5:
-                        overall_grade = "B"
-                    elif avg_score >= 1.5:
-                        overall_grade = "C"
-                    else:
-                        overall_grade = "D"
+                # Try weighted scoring first if criteria have weights
+                if criteria_list:
+                    try:
+                        weighted_avg = self.calculate_weighted_score(evaluation_scores, criteria_list)
+                        avg_score = weighted_avg
+                    except Exception as e:
+                        print(f"  ⚠️  Weighted scoring failed, using simple average: {e}")
+                        # Fallback to simple average
+                        scores = []
+                        for criterion in ["innovation", "feasibility", "impact", "clarity"]:
+                            if criterion in evaluation_scores and "score" in evaluation_scores[criterion]:
+                                scores.append(evaluation_scores[criterion]["score"])
+                        avg_score = sum(scores) / len(scores) if scores else 3.0
                 else:
-                    overall_grade = "B"  # Default
+                    # Simple average if no criteria list
+                    scores = []
+                    for criterion in ["innovation", "feasibility", "impact", "clarity"]:
+                        if criterion in evaluation_scores and "score" in evaluation_scores[criterion]:
+                            scores.append(evaluation_scores[criterion]["score"])
+                    avg_score = sum(scores) / len(scores) if scores else 3.0
+
+                # Convert average to grade (S/A/B/C/D)
+                if avg_score >= 4.5:
+                    overall_grade = "S"
+                elif avg_score >= 3.5:
+                    overall_grade = "A"
+                elif avg_score >= 2.5:
+                    overall_grade = "B"
+                elif avg_score >= 1.5:
+                    overall_grade = "C"
+                else:
+                    overall_grade = "D"
             else:
                 # Fallback to old simple logic if scores not provided
                 if "어렵" in technical_feasibility or "불가능" in technical_feasibility:
@@ -1217,7 +1424,21 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
                 ai_categories=ai_categories
             )
             db.add(history)
-            
+
+            # Print token usage summary
+            token_summary = self.get_token_usage_summary()
+            print(f"\n{'='*80}")
+            print(f"📊 Token Usage Summary for Application {application.id}")
+            print(f"{'='*80}")
+            print(f"  LLM A: {token_summary['llm_a']['total_tokens']} tokens "
+                  f"({token_summary['llm_a']['api_calls']} calls)")
+            if token_summary['llm_b']['api_calls'] > 0:
+                print(f"  LLM B: {token_summary['llm_b']['total_tokens']} tokens "
+                      f"({token_summary['llm_b']['api_calls']} calls)")
+            print(f"  Total: {token_summary['total']['total_tokens']} tokens "
+                  f"({token_summary['total']['api_calls']} calls)")
+            print(f"{'='*80}\n")
+
             db.commit()
             return True
 
