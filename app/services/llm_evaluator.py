@@ -451,6 +451,31 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
 """
         return prompt
 
+    def _fix_common_json_errors(self, json_text: str) -> str:
+        """
+        Attempt to fix common JSON formatting errors
+
+        Args:
+            json_text: Potentially malformed JSON string
+
+        Returns:
+            Fixed JSON string
+        """
+        # Remove trailing commas before } or ]
+        json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
+
+        # Fix unescaped newlines in strings (replace \n not preceded by \)
+        # This is tricky - we need to find strings and escape newlines
+        # For now, just log that we attempted fix
+
+        # Remove any text before first { and after last }
+        start_idx = json_text.find('{')
+        end_idx = json_text.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_text = json_text[start_idx:end_idx+1]
+
+        return json_text
+
     def _extract_json_from_text(self, text: str) -> Optional[str]:
         """
         Extract JSON from LLM response text using multiple strategies
@@ -625,7 +650,7 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
         # Extract JSON from response
         json_text = self._extract_json_from_text(content)
 
-        # Parse JSON with retry on quality failure
+        # Parse JSON with automatic error fixing
         try:
             result = json.loads(json_text)
             print(f"✅ {llm_name} JSON parsed successfully")
@@ -635,10 +660,45 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
 
             return result
         except json.JSONDecodeError as e:
-            print(f"❌ {llm_name} JSON parsing error: {e}")
-            print(f"📄 Response content (first 500 chars): {content[:500]}")
-            print(f"📄 Extracted JSON (first 500 chars): {json_text[:500]}")
-            raise
+            print(f"⚠️  {llm_name} Initial JSON parsing failed: {e}")
+            print(f"🔧 Attempting to fix common JSON errors...")
+
+            # Try to fix common JSON errors
+            try:
+                fixed_json = self._fix_common_json_errors(json_text)
+                result = json.loads(fixed_json)
+                print(f"✅ {llm_name} JSON parsed successfully after auto-fix")
+
+                # Normalize structure
+                result = self._normalize_evaluation_result(result, llm_name)
+                return result
+            except json.JSONDecodeError as e2:
+                # Save full JSON to file for debugging
+                debug_filename = f"debug_json_error_{llm_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                try:
+                    with open(debug_filename, 'w', encoding='utf-8') as f:
+                        f.write("=== ORIGINAL RESPONSE ===\n")
+                        f.write(content)
+                        f.write("\n\n=== EXTRACTED JSON ===\n")
+                        f.write(json_text)
+                        f.write("\n\n=== FIXED JSON ===\n")
+                        f.write(fixed_json)
+                    print(f"📁 Full JSON saved to: {debug_filename}")
+                except Exception as save_error:
+                    print(f"⚠️  Could not save debug file: {save_error}")
+
+                # Print detailed error information
+                print(f"\n{'='*80}")
+                print(f"❌ {llm_name} JSON Parsing Error Details")
+                print(f"{'='*80}")
+                print(f"Error: {e2}")
+                print(f"Error Location: Line {e2.lineno}, Column {e2.colno}")
+                print(f"\nJSON Text around error (chars {max(0, e2.pos-200)}:{e2.pos+200}):")
+                print(json_text[max(0, e2.pos-200):e2.pos+200])
+                print(f"\n{'='*80}\n")
+
+                # Re-raise the error
+                raise
 
     def build_debate_prompt(
         self,
@@ -995,8 +1055,37 @@ After that, you will have an opportunity to adjust your final evaluation after h
             result_a_initial = json.loads(json_text_a_initial)
             print(f"✅ LLM A Step 1 JSON parsed successfully")
         except json.JSONDecodeError as e:
-            print(f"❌ LLM A Step 1 JSON parsing error: {e}")
-            raise
+            print(f"⚠️  LLM A Step 1 initial JSON parsing failed: {e}")
+            print(f"🔧 Attempting to fix common JSON errors...")
+
+            try:
+                fixed_json = self._fix_common_json_errors(json_text_a_initial)
+                result_a_initial = json.loads(fixed_json)
+                print(f"✅ LLM A Step 1 JSON parsed successfully after auto-fix")
+            except json.JSONDecodeError as e2:
+                # Save full JSON to file for debugging
+                debug_filename = f"debug_json_error_LLM_A_Step1_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                try:
+                    with open(debug_filename, 'w', encoding='utf-8') as f:
+                        f.write("=== ORIGINAL RESPONSE ===\n")
+                        f.write(content_a_initial)
+                        f.write("\n\n=== EXTRACTED JSON ===\n")
+                        f.write(json_text_a_initial)
+                        f.write("\n\n=== FIXED JSON ===\n")
+                        f.write(fixed_json)
+                    print(f"📁 Full JSON saved to: {debug_filename}")
+                except Exception as save_error:
+                    print(f"⚠️  Could not save debug file: {save_error}")
+
+                print(f"\n{'='*80}")
+                print(f"❌ LLM A Step 1 JSON Parsing Error Details")
+                print(f"{'='*80}")
+                print(f"Error: {e2}")
+                print(f"Error Location: Line {e2.lineno}, Column {e2.colno}")
+                print(f"\nJSON Text around error (chars {max(0, e2.pos-200)}:{e2.pos+200}):")
+                print(json_text_a_initial[max(0, e2.pos-200):e2.pos+200])
+                print(f"\n{'='*80}\n")
+                raise
 
         # Add LLM A's response to message history
         llm_a_messages.append(AIMessage(content=content_a_initial))
@@ -1111,8 +1200,37 @@ Please provide a final evaluation considering LLM B's review opinion.
                     result_a_final = json.loads(json_text_a_final)
                     print(f"✅ LLM A Step 3 JSON parsed successfully")
                 except json.JSONDecodeError as e:
-                    print(f"❌ LLM A Step 3 JSON parsing error: {e}")
-                    raise
+                    print(f"⚠️  LLM A Step 3 initial JSON parsing failed: {e}")
+                    print(f"🔧 Attempting to fix common JSON errors...")
+
+                    try:
+                        fixed_json = self._fix_common_json_errors(json_text_a_final)
+                        result_a_final = json.loads(fixed_json)
+                        print(f"✅ LLM A Step 3 JSON parsed successfully after auto-fix")
+                    except json.JSONDecodeError as e2:
+                        # Save full JSON to file for debugging
+                        debug_filename = f"debug_json_error_LLM_A_Step3_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        try:
+                            with open(debug_filename, 'w', encoding='utf-8') as f:
+                                f.write("=== ORIGINAL RESPONSE ===\n")
+                                f.write(content_a_final)
+                                f.write("\n\n=== EXTRACTED JSON ===\n")
+                                f.write(json_text_a_final)
+                                f.write("\n\n=== FIXED JSON ===\n")
+                                f.write(fixed_json)
+                            print(f"📁 Full JSON saved to: {debug_filename}")
+                        except Exception as save_error:
+                            print(f"⚠️  Could not save debug file: {save_error}")
+
+                        print(f"\n{'='*80}")
+                        print(f"❌ LLM A Step 3 JSON Parsing Error Details")
+                        print(f"{'='*80}")
+                        print(f"Error: {e2}")
+                        print(f"Error Location: Line {e2.lineno}, Column {e2.colno}")
+                        print(f"\nJSON Text around error (chars {max(0, e2.pos-200)}:{e2.pos+200}):")
+                        print(json_text_a_final[max(0, e2.pos-200):e2.pos+200])
+                        print(f"\n{'='*80}\n")
+                        raise
 
                 print(f"\n{'='*80}")
                 print(f"✅ 3-Step Multiturn Debate Completed")
