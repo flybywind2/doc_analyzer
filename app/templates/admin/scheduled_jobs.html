@@ -323,7 +323,28 @@ async function runJobNow(jobId) {
         });
 
         if (response.ok) {
-            showSuccess('작업이 완료되었습니다.');
+            const result = await response.json();
+            let message = '작업이 완료되었습니다.';
+
+            // Show detailed result if available
+            if (result.result) {
+                if (result.result.total_pages !== undefined) {
+                    // Confluence sync result
+                    message = `Confluence 동기화 완료\n\n` +
+                             `총 페이지: ${result.result.total_pages}개\n` +
+                             `신규 생성: ${result.result.new_count}개\n` +
+                             `업데이트: ${result.result.updated_count}개\n` +
+                             `오류: ${result.result.error_count}개`;
+                } else if (result.result.total_count !== undefined) {
+                    // AI evaluation result
+                    message = `AI 평가 완료\n\n` +
+                             `총 지원서: ${result.result.total_count}개\n` +
+                             `성공: ${result.result.success_count}개\n` +
+                             `실패: ${result.result.fail_count}개`;
+                }
+            }
+
+            showSuccess(message);
             await loadJobs();
         } else {
             const error = await response.json();

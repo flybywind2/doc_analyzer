@@ -67,27 +67,44 @@ async def run_ai_evaluation(
     fail_count = 0
     failed_ids = []
     error_messages = []
-    
-    for app in applications:
+
+    total_count = len(applications)
+    print(f"\n{'='*80}")
+    print(f"🤖 AI 평가 시작: 총 {total_count}개 지원서")
+    print(f"{'='*80}\n")
+
+    for idx, app in enumerate(applications, 1):
         try:
+            print(f"[{idx}/{total_count}] 평가 중: Application ID {app.id} - {app.subject or 'N/A'}")
+
             # Classify AI technology
             ai_classifier.classify_and_update(db, app, categories)
-            
+
             # Evaluate with LLM
             success = llm_evaluator.evaluate_application(db, app, criteria_list)
-            
+
             if success:
                 success_count += 1
+                print(f"  ✅ 평가 완료")
             else:
                 fail_count += 1
                 failed_ids.append(app.id)
                 error_messages.append(f"Failed to evaluate application {app.id}")
-                
+                print(f"  ❌ 평가 실패")
+
         except Exception as e:
             fail_count += 1
             failed_ids.append(app.id)
             error_messages.append(f"Error evaluating application {app.id}: {str(e)}")
-    
+            print(f"  ❌ 오류 발생: {str(e)}")
+
+    print(f"\n{'='*80}")
+    print(f"✅ AI 평가 완료")
+    print(f"  총 지원서: {total_count}")
+    print(f"  성공: {success_count}")
+    print(f"  실패: {fail_count}")
+    print(f"{'='*80}\n")
+
     return AIEvaluationResponse(
         success_count=success_count,
         fail_count=fail_count,

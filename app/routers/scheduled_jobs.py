@@ -195,10 +195,19 @@ async def run_scheduled_job_now(
         db.commit()
 
         # Execute job function
+        result_data = None
         try:
-            job_func()
+            result_data = job_func()
             job.last_run_status = 'success'
-            job.last_run_message = 'Manually triggered job completed successfully'
+
+            # Format result message based on job type
+            if job.job_type == 'confluence_sync' and result_data:
+                job.last_run_message = f"동기화 완료: 총 {result_data.get('total_pages', 0)}개, 신규 {result_data.get('new_count', 0)}개, 업데이트 {result_data.get('updated_count', 0)}개, 오류 {result_data.get('error_count', 0)}개"
+            elif job.job_type == 'ai_evaluation' and result_data:
+                job.last_run_message = f"평가 완료: 총 {result_data.get('total_count', 0)}개, 성공 {result_data.get('success_count', 0)}개, 실패 {result_data.get('fail_count', 0)}개"
+            else:
+                job.last_run_message = 'Manually triggered job completed successfully'
+
             job.successful_runs += 1
         except Exception as e:
             job.last_run_status = 'failed'
@@ -208,7 +217,12 @@ async def run_scheduled_job_now(
 
         db.commit()
 
-        return {"message": f"Job '{job.name}' executed successfully"}
+        return {
+            "message": f"Job '{job.name}' executed successfully",
+            "result": result_data,
+            "status": job.last_run_status,
+            "details": job.last_run_message
+        }
 
     except Exception as e:
         db.rollback()

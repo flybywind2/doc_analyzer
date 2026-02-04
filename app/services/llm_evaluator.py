@@ -1113,11 +1113,9 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
                 ).order_by(EvaluationCriteria.display_order).all()
             
             # Evaluate with LLM(s)
-            print(f"🤖 Evaluating application {application.id} ({application.subject})...")
-
             if self.llm_b:
                 # 3-Step Multiturn Debate mode: LLM A → LLM B → LLM A (with conversation context)
-                print(f"💬 Using 3-step multiturn debate mode: LLM A (multiturn) → LLM B → LLM A (continue conversation)")
+                print(f"  💬 3단계 멀티턴 토론 모드 사용")
                 result_a_initial, result_b_review, result_a_final = self.evaluate_with_multiturn_debate(
                     application,
                     criteria_list or []
@@ -1127,7 +1125,7 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
                 result = self._merge_debate_results(result_a_initial, result_b_review, result_a_final)
             else:
                 # Single LLM mode
-                print(f"🤖 Using single LLM mode")
+                print(f"  🤖 단일 LLM 모드 사용")
                 prompt = self.build_evaluation_prompt(application, criteria_list or [])
                 result_a = self.evaluate_with_single_llm(
                     self.llm_a,
@@ -1221,11 +1219,10 @@ LLM B의 검토 의견을 고려하여 최종 평가를 내려주세요.
             db.add(history)
             
             db.commit()
-            print(f"✅ Application {application.id} evaluated: {overall_grade} ({ai_category})")
             return True
-            
+
         except Exception as e:
-            print(f"❌ Error evaluating application {application.id}: {e}")
+            print(f"  ⚠️  평가 중 내부 오류: {e}")
             import traceback
             traceback.print_exc()
             db.rollback()

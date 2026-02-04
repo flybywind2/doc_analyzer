@@ -592,19 +592,25 @@ class ConfluenceParser:
         # Get child pages
         pages = self.get_child_pages()
         result["total_pages"] = len(pages)
-        
-        for page in pages:
+
+        print(f"\n{'='*80}")
+        print(f"📥 Confluence 동기화 시작: 총 {len(pages)}개 페이지")
+        print(f"{'='*80}\n")
+
+        for idx, page in enumerate(pages, 1):
             try:
                 page_id = page["id"]
                 page_url = page["url"]
-                
+
+                print(f"[{idx}/{len(pages)}] 처리 중: Page ID {page_id}")
+
                 # Check if already exists
                 existing_app = db.query(Application).filter(
                     Application.confluence_page_id == page_id
                 ).first()
-                
+
                 if existing_app and not force_update:
-                    print(f"⏭️  Skipping existing page: {page_id}")
+                    print(f"  ⏭️  기존 페이지 건너뜀")
                     continue
                 
                 # Get and parse content
@@ -632,13 +638,13 @@ class ConfluenceParser:
                     for key, value in parsed_data.items():
                         setattr(existing_app, key, value)
                     result["updated_count"] += 1
-                    print(f"✅ Updated application: {page_id}")
+                    print(f"  ✅ 업데이트 완료")
                 else:
                     # Create new
                     new_app = Application(**parsed_data)
                     db.add(new_app)
                     result["new_count"] += 1
-                    print(f"✅ Created new application: {page_id}")
+                    print(f"  ✅ 신규 생성 완료")
                 
                 db.commit()
                 
@@ -646,9 +652,17 @@ class ConfluenceParser:
                 result["error_count"] += 1
                 error_msg = f"Error processing page {page['id']}: {str(e)}"
                 result["errors"].append(error_msg)
-                print(f"❌ {error_msg}")
+                print(f"  ❌ 오류 발생: {str(e)}")
                 db.rollback()
-        
+
+        print(f"\n{'='*80}")
+        print(f"✅ Confluence 동기화 완료")
+        print(f"  총 페이지: {result['total_pages']}")
+        print(f"  신규 생성: {result['new_count']}")
+        print(f"  업데이트: {result['updated_count']}")
+        print(f"  오류: {result['error_count']}")
+        print(f"{'='*80}\n")
+
         return result
 
     def sync_single_application(self, db: Session, page_id: str, batch_id: Optional[str] = None, force_update: bool = True) -> Dict[str, Any]:

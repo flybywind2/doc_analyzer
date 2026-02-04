@@ -165,9 +165,11 @@ class JobScheduler:
                 db.commit()
 
             # Run sync
-            result = confluence_parser.sync_all_applications(db)
+            result = confluence_parser.sync_applications(db)
 
-            logger.info(f"Confluence sync completed: {result.get('created', 0)} created, {result.get('updated', 0)} updated")
+            logger.info(f"Confluence sync completed: {result.get('new_count', 0)} created, {result.get('updated_count', 0)} updated")
+
+            return result
 
         except Exception as e:
             logger.error(f"Confluence sync failed: {e}")
@@ -205,6 +207,7 @@ class JobScheduler:
             # Evaluate each application
             success_count = 0
             fail_count = 0
+            total_count = len(applications)
 
             for app in applications:
                 try:
@@ -223,7 +226,15 @@ class JobScheduler:
                     logger.error(f"Error evaluating application {app.id}: {e}")
                     fail_count += 1
 
-            logger.info(f"AI evaluation completed: {success_count} success, {fail_count} failed")
+            result = {
+                "total_count": total_count,
+                "success_count": success_count,
+                "fail_count": fail_count
+            }
+
+            logger.info(f"AI evaluation completed: {success_count} success, {fail_count} failed out of {total_count} total")
+
+            return result
 
         except Exception as e:
             logger.error(f"AI evaluation failed: {e}")
