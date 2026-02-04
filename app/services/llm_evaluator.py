@@ -405,9 +405,39 @@ Summarize the core content of this application in 5 lines (in Korean):
 5. Implementation plan (1 line)
 
 ### 5. Scoring and Rationale by Evaluation Criteria (5-point scale)
-Evaluate the application based on the following criteria, providing a 1-5 score and 2-3 sentence rationale for each (in Korean):
+
+**CRITICAL: You must apply strict scoring standards to ensure differentiation between applications.**
+
+#### Scoring Scale Guidelines (Apply Consistently):
+- **5 points (Exceptional)**: Outstanding quality that exceeds expectations. Top 10% of applications. Clear evidence of excellence in all aspects.
+- **4 points (Good)**: Above average with minor areas for improvement. Strong execution with solid foundation.
+- **3 points (Average)**: Meets basic requirements but has notable gaps. Standard level with room for growth.
+- **2 points (Below Average)**: Significant weaknesses or gaps. Requires substantial improvement.
+- **1 point (Poor)**: Does not meet basic standards. Critical flaws or missing essential elements.
+
+**Important**: Use the full 1-5 scale. Avoid clustering scores around 3-4. If an application is truly exceptional, give 5. If it has serious issues, give 1-2. **Most applications should score 2-4, with 5 reserved for truly outstanding cases.**
+
+#### Evaluation Criteria:
 
 {self._build_criteria_guide(criteria_list)}
+
+#### Additional Evaluation Guidelines:
+
+**For Each Criterion, Consider:**
+1. **Evidence Quality**: Is the claim supported by concrete details in the application?
+2. **Specificity**: Are the descriptions specific and detailed, or vague and generic?
+3. **Completeness**: Does the application address all relevant aspects?
+4. **Realism**: Are the goals and approaches realistic given the team and resources?
+5. **Depth**: Does it show deep understanding or surface-level thinking?
+
+**Common Scoring Mistakes to Avoid:**
+- ❌ Giving 4-5 points just because the application "sounds good"
+- ❌ Being too lenient when critical information is missing
+- ❌ Scoring all criteria similarly without differentiation
+- ❌ Inflating scores based on enthusiasm rather than substance
+- ✅ Score based strictly on what is written, not potential
+- ✅ Differentiate clearly between 3 (meets requirements) and 4 (exceeds them)
+- ✅ Use the full 1-5 range to show true differences between applications
 """
 
         prompt = f"""{system_prompt}
@@ -773,16 +803,81 @@ Review the above application and LLM A's evaluation, and provide a **better eval
 
 ### Review Guidelines
 
-1. **AI Technology Classification**: Is LLM A's choice appropriate? Does it match the application content?
+**Your Role as Critical Reviewer**: Challenge LLM A's evaluation to ensure maximum objectivity and differentiation.
 
-2. **Evaluation Scores**: Do the scores for each criterion accurately reflect the application content?
-   - Are they too lenient or too strict?
-   - Is the rationale clear?
+#### 1. Scoring Calibration Check
 
-3. **Improvements**:
-   - What important content did LLM A miss?
-   - Are there exaggerated or underestimated parts?
-   - Can you provide more specific rationale?
+**Examine each score against these standards:**
+- **Score 5 (Exceptional)**: Does the application truly stand out as top 10%? Is there concrete evidence of excellence?
+- **Score 4 (Good)**: Is it genuinely above average with only minor gaps? Or should it be a 3?
+- **Score 3 (Average)**: Does it meet basic requirements? Not just "acceptable" but truly standard?
+- **Score 2 (Below Average)**: Are there significant weaknesses that LLM A overlooked?
+- **Score 1 (Poor)**: Critical flaws or missing essential elements?
+
+**Common LLM A Mistakes to Look For:**
+- ✗ **Grade Inflation**: Giving 4-5 when the evidence only supports 2-3
+- ✗ **Similarity Bias**: Scoring all criteria similarly (e.g., all 4s) without differentiation
+- ✗ **Potential vs. Reality**: Scoring based on what could be done, not what's written
+- ✗ **Vague Rationale**: Generic explanations without specific evidence from application
+- ✗ **Missing Critical Gaps**: Overlooking missing information or unrealistic claims
+
+#### 2. Evidence-Based Validation
+
+For each criterion LLM A evaluated, ask:
+- **Is there concrete evidence in the application to support this score?**
+- **Did LLM A cite specific details from the application?**
+- **Are there critical aspects LLM A failed to consider?**
+- **Is the rationale based on facts or assumptions?**
+
+#### 3. Differentiation Analysis
+
+Compare criteria scores:
+- **Should all criteria have similar scores?** (Usually no - applications have strengths and weaknesses)
+- **Does the variation in scores reflect real differences in the application?**
+- **Are there areas where the application clearly excels or falls short that LLM A missed?**
+
+#### 4. Specific Review Checklist
+
+**AI Technology Classification:**
+- Is the chosen category the best fit based on the described solution?
+- Did LLM A consider all technical details in the improvement idea section?
+
+**Innovation/Creativity:**
+- Is this approach genuinely novel, or just standard practice described differently?
+- Did LLM A distinguish between "new to the team" vs "new to the industry"?
+
+**Feasibility:**
+- Did LLM A realistically assess team capabilities against project complexity?
+- Are there red flags (missing data, unrealistic timeline, skill gaps) that LLM A ignored?
+- Is the technical difficulty appropriately weighted?
+
+**Impact/Effectiveness:**
+- Are the expected benefits specific and measurable, or vague promises?
+- Did LLM A verify that benefits align with the problem described?
+
+**Clarity/Completeness:**
+- Is critical information missing that LLM A didn't penalize?
+- Are problem and solution clearly defined with concrete details?
+
+#### 5. Adjustment Guidelines
+
+**When to Lower Scores:**
+- Vague or generic descriptions without specifics
+- Missing critical information (data availability, team skills, timeline)
+- Overpromising results without clear methodology
+- Solution doesn't clearly address the stated problem
+- LLM A gave benefit of doubt without evidence
+
+**When to Raise Scores:**
+- LLM A was overly conservative despite strong evidence
+- Application provides exceptional detail and rigor
+- Clear methodology with realistic assessment of challenges
+- Concrete, measurable success metrics
+
+**When to Keep Scores:**
+- LLM A's reasoning is sound and evidence-based
+- Score accurately reflects the quality shown in application
+- Changing it would not improve accuracy
 
 ### Response Format (JSON)
 
@@ -901,20 +996,85 @@ Organization: {department_info}
 
 Review the above evaluation process and provide a **final evaluation**.
 
-### Review Considerations
+### Final Decision Framework
 
-1. **Are LLM B's points valid?**
-   - Did it more accurately reflect the application content?
-   - Did it find important content that was missed?
-   - Are the score adjustments reasonable?
+**Your Task**: Synthesize both evaluations to produce the most accurate and fair assessment.
 
-2. **What parts of your initial evaluation should be maintained?**
-   - Did LLM B exaggerate or misinterpret anything?
-   - Were there parts where the initial evaluation was more objective?
+#### Step 1: Analyze the Debate
 
-3. **Final Decision**
-   - Determine final score and rationale for each evaluation criterion
-   - Derive balanced results synthesizing both evaluations
+**Compare each score systematically:**
+
+| Criterion | Your Initial Score | LLM B's Score | Difference | Evidence in Application |
+|-----------|-------------------|---------------|------------|------------------------|
+| For each criterion, determine which score is more justified |
+
+**For each criterion where scores differ, ask:**
+1. **Which score has stronger evidence from the application?**
+2. **Did LLM B identify a real issue, or over-correct?**
+3. **Was my initial score too lenient/harsh?**
+4. **What does the application actually say about this aspect?**
+
+#### Step 2: Evaluate LLM B's Critique Quality
+
+**Valid Critiques (Accept these):**
+- ✓ Points out missing evidence for a high score
+- ✓ Identifies overly generous scoring without justification
+- ✓ Catches specific details in application that were overlooked
+- ✓ Provides concrete examples of why score should change
+- ✓ Applies consistent scoring standards
+
+**Invalid Critiques (Reject these):**
+- ✗ Changes scores without clear reasoning
+- ✗ Applies overly harsh standards inconsistently
+- ✗ Misinterprets or misreads the application content
+- ✗ Makes assumptions not supported by application
+- ✗ Focuses on potential rather than what's written
+
+#### Step 3: Scoring Decision Matrix
+
+**For each criterion, choose:**
+
+**Option A: Accept LLM B's Score** - When:
+- LLM B provided strong evidence you missed
+- Your initial score was clearly too lenient/harsh
+- LLM B's rationale is more aligned with application content
+- The score adjustment improves accuracy and fairness
+
+**Option B: Keep Your Initial Score** - When:
+- Your initial reasoning was sound and evidence-based
+- LLM B misinterpreted the application content
+- LLM B applied inconsistent or overly harsh standards
+- The evidence supports your original assessment
+
+**Option C: Compromise Score** - When:
+- Both evaluations have merit
+- The truth lies between the two assessments
+- Averaging provides more accurate reflection
+- Neither extreme is fully justified
+
+#### Step 4: Ensure Differentiation
+
+**Final Check:**
+- ✓ Do scores vary across criteria to reflect real application strengths/weaknesses?
+- ✓ Is there clear rationale for each score based on application content?
+- ✓ Are scores distributed across the 1-5 scale appropriately?
+- ✓ Does the overall pattern of scores make logical sense?
+- ✓ Have you avoided clustering all scores around 3-4?
+
+**Red Flags to Avoid:**
+- ❌ All criteria scored identically (e.g., all 3s or all 4s)
+- ❌ Scores changed without clear justification
+- ❌ Final scores compromise quality for the sake of averaging
+- ❌ Ignoring valid criticism from LLM B
+- ❌ Blindly accepting LLM B's critique without verification
+
+#### Step 5: Document Your Reasoning
+
+In `final_decision`, clearly explain:
+1. **Which of LLM B's points you accepted and why**
+2. **Which points you rejected and why**
+3. **How the final scores reflect the most accurate assessment**
+4. **Key evidence from the application that supports your decision**
 
 ### Response Format (JSON)
 
@@ -1135,20 +1295,85 @@ After that, you will have an opportunity to adjust your final evaluation after h
 
 Please provide a final evaluation considering LLM B's review opinion.
 
-### Review Considerations
+### Final Decision Framework
 
-1. **Are LLM B's points valid?**
-   - Did it more accurately reflect the application content?
-   - Did it find important content that was missed?
-   - Are the score adjustments reasonable?
+**Your Task**: Synthesize both evaluations to produce the most accurate and fair assessment.
 
-2. **What parts of your initial evaluation should be maintained?**
-   - Did LLM B exaggerate or misinterpret anything?
-   - Were there parts where the initial evaluation was more objective?
+#### Step 1: Analyze the Debate
 
-3. **Final Decision**
-   - Determine final score and rationale for each evaluation criterion
-   - Derive balanced results synthesizing both evaluations
+**Compare each score systematically:**
+
+| Criterion | Your Initial Score | LLM B's Score | Difference | Evidence in Application |
+|-----------|-------------------|---------------|------------|------------------------|
+| For each criterion, determine which score is more justified |
+
+**For each criterion where scores differ, ask:**
+1. **Which score has stronger evidence from the application?**
+2. **Did LLM B identify a real issue, or over-correct?**
+3. **Was my initial score too lenient/harsh?**
+4. **What does the application actually say about this aspect?**
+
+#### Step 2: Evaluate LLM B's Critique Quality
+
+**Valid Critiques (Accept these):**
+- ✓ Points out missing evidence for a high score
+- ✓ Identifies overly generous scoring without justification
+- ✓ Catches specific details in application that were overlooked
+- ✓ Provides concrete examples of why score should change
+- ✓ Applies consistent scoring standards
+
+**Invalid Critiques (Reject these):**
+- ✗ Changes scores without clear reasoning
+- ✗ Applies overly harsh standards inconsistently
+- ✗ Misinterprets or misreads the application content
+- ✗ Makes assumptions not supported by application
+- ✗ Focuses on potential rather than what's written
+
+#### Step 3: Scoring Decision Matrix
+
+**For each criterion, choose:**
+
+**Option A: Accept LLM B's Score** - When:
+- LLM B provided strong evidence you missed
+- Your initial score was clearly too lenient/harsh
+- LLM B's rationale is more aligned with application content
+- The score adjustment improves accuracy and fairness
+
+**Option B: Keep Your Initial Score** - When:
+- Your initial reasoning was sound and evidence-based
+- LLM B misinterpreted the application content
+- LLM B applied inconsistent or overly harsh standards
+- The evidence supports your original assessment
+
+**Option C: Compromise Score** - When:
+- Both evaluations have merit
+- The truth lies between the two assessments
+- Averaging provides more accurate reflection
+- Neither extreme is fully justified
+
+#### Step 4: Ensure Differentiation
+
+**Final Check:**
+- ✓ Do scores vary across criteria to reflect real application strengths/weaknesses?
+- ✓ Is there clear rationale for each score based on application content?
+- ✓ Are scores distributed across the 1-5 scale appropriately?
+- ✓ Does the overall pattern of scores make logical sense?
+- ✓ Have you avoided clustering all scores around 3-4?
+
+**Red Flags to Avoid:**
+- ❌ All criteria scored identically (e.g., all 3s or all 4s)
+- ❌ Scores changed without clear justification
+- ❌ Final scores compromise quality for the sake of averaging
+- ❌ Ignoring valid criticism from LLM B
+- ❌ Blindly accepting LLM B's critique without verification
+
+#### Step 5: Document Your Reasoning
+
+In `final_decision`, clearly explain:
+1. **Which of LLM B's points you accepted and why**
+2. **Which points you rejected and why**
+3. **How the final scores reflect the most accurate assessment**
+4. **Key evidence from the application that supports your decision**
 
 ### Response Format (JSON)
 
