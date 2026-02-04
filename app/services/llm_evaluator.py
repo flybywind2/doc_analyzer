@@ -19,6 +19,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from app.config import settings
 from app.models.application import Application
 from app.models.evaluation import EvaluationCriteria, EvaluationHistory
+from app.models.category import AICategory
 from app.services.rate_limiter import RateLimiter
 
 
@@ -144,13 +145,19 @@ class LLMEvaluator:
                 "api_calls": 0
             }
 
-    def _validate_evaluation_quality(self, result: Dict[str, Any], criteria_list: List[EvaluationCriteria]) -> None:
+    def _validate_evaluation_quality(
+        self,
+        result: Dict[str, Any],
+        criteria_list: List[EvaluationCriteria],
+        valid_categories: List[str]
+    ) -> None:
         """
         Validate quality of LLM evaluation result
 
         Args:
             result: Evaluation result to validate
             criteria_list: Expected evaluation criteria
+            valid_categories: List of valid AI category names from database
 
         Raises:
             EvaluationQualityError: If validation fails
@@ -162,8 +169,7 @@ class LLMEvaluator:
             if field not in result or not result[field]:
                 raise EvaluationQualityError(f"Missing or empty required field: {field}")
 
-        # Validate ai_category
-        valid_categories = ["예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"]
+        # Validate ai_category against database categories
         if result["ai_category"] not in valid_categories:
             raise EvaluationQualityError(
                 f"Invalid AI category: {result['ai_category']}. Must be one of {valid_categories}"
@@ -203,6 +209,48 @@ class LLMEvaluator:
                 )
 
         print(f"  ✅ Evaluation quality validation passed")
+
+    def _get_valid_category_names(self, ai_categories: Optional[List[AICategory]]) -> str:
+        """
+        Get valid category names as comma-separated string
+
+        Args:
+            ai_categories: List of AI categories from database (optional)
+
+        Returns:
+            Comma-separated string of category names (e.g., '"예측", "분류", "챗봇"')
+        """
+        if not ai_categories:
+            return '"예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"'
+
+        names = [f'"{cat.name}"' for cat in ai_categories]
+        return ", ".join(names)
+
+    def _build_ai_category_list(self, ai_categories: Optional[List[AICategory]]) -> str:
+        """
+        Build AI category list from database categories
+
+        Args:
+            ai_categories: List of AI categories from database (optional)
+
+        Returns:
+            Formatted AI category list string
+        """
+        if not ai_categories:
+            # Fallback to default categories
+            return """- **예측 (Prediction)**: Future value prediction, demand forecasting, trend analysis
+- **분류 (Classification)**: Image/text classification, defect detection, category classification
+- **챗봇 (Chatbot)**: Conversational interface, auto-response, Q&A
+- **에이전트 (Agent)**: Autonomous decision-making, complex task automation, workflow automation
+- **최적화 (Optimization)**: Resource optimization, scheduling, route optimization
+- **강화학습 (Reinforcement Learning)**: Learning-based decision-making, simulation optimization"""
+
+        category_lines = []
+        for cat in ai_categories:
+            description = cat.description or "No description available"
+            category_lines.append(f"- **{cat.name}**: {description}")
+
+        return "\n".join(category_lines)
 
     def _build_criteria_guide(self, criteria_list: List[EvaluationCriteria]) -> str:
         """
@@ -264,17 +312,19 @@ class LLMEvaluator:
         return ",\n".join(json_parts)
 
     def build_evaluation_prompt(
-        self, 
-        application: Application, 
-        criteria_list: List[EvaluationCriteria]
+        self,
+        application: Application,
+        criteria_list: List[EvaluationCriteria],
+        ai_categories: Optional[List[AICategory]] = None
     ) -> str:
         """
         Build evaluation prompt for LLM
-        
+
         Args:
             application: Application to evaluate
             criteria_list: List of evaluation criteria
-            
+            ai_categories: List of valid AI categories from database (optional)
+
         Returns:
             Formatted prompt string
         """
@@ -334,12 +384,7 @@ Based on the application content, summarize and evaluate the following:
 
 ### 1. AI Technology Classification
 Select **exactly one** AI technology from the application:
-- **예측 (Prediction)**: Future value prediction, demand forecasting, trend analysis
-- **분류 (Classification)**: Image/text classification, defect detection, category classification
-- **챗봇 (Chatbot)**: Conversational interface, auto-response, Q&A
-- **에이전트 (Agent)**: Autonomous decision-making, complex task automation, workflow automation
-- **최적화 (Optimization)**: Resource optimization, scheduling, route optimization
-- **강화학습 (Reinforcement Learning)**: Learning-based decision-making, simulation optimization
+{self._build_ai_category_list(ai_categories)}
 
 ### 2. Business Impact from Organization Perspective
 Summarize the business impact of this project from {department_info} organization's perspective (2-3 sentences in Korean):
@@ -394,7 +439,7 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
 
 **Important Rules:**
 1. **Valid JSON format required** - All strings must be enclosed in double quotes (")
-2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+2. **ai_category must be exactly one of**: {self._get_valid_category_names(ai_categories)}
 3. **Each score in evaluation_scores must be an integer between 1-5**
 4. **All rationale must use only content written in the application** (no hallucination)
 5. **Use \\n for line breaks within JSON**
@@ -599,7 +644,8 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
         self,
         application: Application,
         criteria_list: List[EvaluationCriteria],
-        llm_a_result: Dict[str, Any]
+        llm_a_result: Dict[str, Any],
+        ai_categories: Optional[List[AICategory]] = None
     ) -> str:
         """
         Build debate prompt for LLM B to review and refine LLM A's evaluation
@@ -608,6 +654,7 @@ Evaluate the application based on the following criteria, providing a 1-5 score 
             application: Application to evaluate
             criteria_list: List of evaluation criteria
             llm_a_result: LLM A's evaluation result
+            ai_categories: List of valid AI categories from database (optional)
 
         Returns:
             Formatted debate prompt string
@@ -702,7 +749,7 @@ Review the above application and LLM A's evaluation, and provide a **better eval
 
 **Important Rules:**
 1. **Valid JSON format required**
-2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+2. **ai_category must be exactly one of**: {self._get_valid_category_names(ai_categories)}
 3. **Each score in evaluation_scores must be an integer between 1-5**
 4. **rationale must use only content written in the application** (no hallucination)
 5. **If score differs from LLM A, explain reason in debate_summary**
@@ -718,7 +765,8 @@ Review the above application and LLM A's evaluation, and provide a **better eval
         application: Application,
         criteria_list: List[EvaluationCriteria],
         llm_a_result: Dict[str, Any],
-        llm_b_result: Dict[str, Any]
+        llm_b_result: Dict[str, Any],
+        ai_categories: Optional[List[AICategory]] = None
     ) -> str:
         """
         Build final evaluation prompt for LLM A to consider LLM B's review
@@ -728,6 +776,7 @@ Review the above application and LLM A's evaluation, and provide a **better eval
             criteria_list: List of evaluation criteria
             llm_a_result: LLM A's initial evaluation
             llm_b_result: LLM B's review and refinement
+            ai_categories: List of valid AI categories from database (optional)
 
         Returns:
             Formatted final evaluation prompt
@@ -832,7 +881,7 @@ Review the above evaluation process and provide a **final evaluation**.
 
 **Important Rules:**
 1. **Valid JSON format required**
-2. **ai_category must be exactly one of**: "예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"
+2. **ai_category must be exactly one of**: {self._get_valid_category_names(ai_categories)}
 3. **Each score in evaluation_scores must be an integer between 1-5**
 4. **rationale must clearly state the final decision rationale**
 5. **final_decision must explain how initial evaluation and review opinion were synthesized**
@@ -880,7 +929,8 @@ Review the above evaluation process and provide a **final evaluation**.
     def evaluate_with_multiturn_debate(
         self,
         application: Application,
-        criteria_list: List[EvaluationCriteria]
+        criteria_list: List[EvaluationCriteria],
+        ai_categories: Optional[List[AICategory]] = None
     ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
         Evaluate using 3-step debate mode with multiturn conversation for LLM A
@@ -889,6 +939,7 @@ Review the above evaluation process and provide a **final evaluation**.
         Args:
             application: Application to evaluate
             criteria_list: Evaluation criteria
+            ai_categories: List of valid AI categories from database (optional)
 
         Returns:
             Tuple of (llm_a_initial, llm_b_review, llm_a_final or None)
@@ -921,7 +972,7 @@ After that, you will have an opportunity to adjust your final evaluation after h
 
 **IMPORTANT: Please provide your entire response in Korean language.**"""
 
-        prompt_a_initial = self.build_evaluation_prompt(application, criteria_list)
+        prompt_a_initial = self.build_evaluation_prompt(application, criteria_list, ai_categories)
 
         llm_a_messages.append(SystemMessage(content=system_message))
         llm_a_messages.append(HumanMessage(content=prompt_a_initial))
@@ -957,7 +1008,7 @@ After that, you will have an opportunity to adjust your final evaluation after h
         if self.llm_b:
             try:
                 print(f"\n📍 STEP 2/3: LLM B - Review & Refinement (Independent)")
-                debate_prompt = self.build_debate_prompt(application, criteria_list, result_a_initial)
+                debate_prompt = self.build_debate_prompt(application, criteria_list, result_a_initial, ai_categories)
                 result_b_review = self.evaluate_with_single_llm(
                     self.llm_b,
                     debate_prompt,
@@ -1306,14 +1357,29 @@ Please provide a final evaluation considering LLM B's review opinion.
                 criteria_list = db.query(EvaluationCriteria).filter(
                     EvaluationCriteria.is_active == True
                 ).order_by(EvaluationCriteria.display_order).all()
-            
+
+            # Get valid AI categories from database
+            ai_category_objects = db.query(AICategory).filter(
+                AICategory.is_active == True
+            ).order_by(AICategory.display_order).all()
+
+            if not ai_category_objects:
+                # Fallback to default if no categories in DB
+                ai_category_objects = None
+                valid_categories = ["예측", "분류", "챗봇", "에이전트", "최적화", "강화학습"]
+                print(f"  ⚠️  No active AI categories found in DB, using defaults: {valid_categories}")
+            else:
+                valid_categories = [cat.name for cat in ai_category_objects]
+                print(f"  ℹ️  Loaded {len(valid_categories)} valid AI categories from DB: {valid_categories}")
+
             # Evaluate with LLM(s)
             if self.llm_b:
                 # 3-Step Multiturn Debate mode: LLM A → LLM B → LLM A (with conversation context)
                 print(f"  💬 3단계 멀티턴 토론 모드 사용")
                 result_a_initial, result_b_review, result_a_final = self.evaluate_with_multiturn_debate(
                     application,
-                    criteria_list or []
+                    criteria_list or [],
+                    ai_category_objects
                 )
 
                 # Merge results
@@ -1321,7 +1387,7 @@ Please provide a final evaluation considering LLM B's review opinion.
             else:
                 # Single LLM mode
                 print(f"  🤖 단일 LLM 모드 사용")
-                prompt = self.build_evaluation_prompt(application, criteria_list or [])
+                prompt = self.build_evaluation_prompt(application, criteria_list or [], ai_category_objects)
                 result_a = self.evaluate_with_single_llm(
                     self.llm_a,
                     prompt,
@@ -1329,6 +1395,13 @@ Please provide a final evaluation considering LLM B's review opinion.
                     step="[Single LLM Mode]"
                 )
                 result = result_a
+
+            # Validate evaluation quality
+            try:
+                self._validate_evaluation_quality(result, criteria_list or [], valid_categories)
+            except EvaluationQualityError as e:
+                print(f"  ⚠️  Evaluation quality validation failed: {e}")
+                print(f"  ℹ️  Continuing with result (validation is advisory)")
 
             # Extract results
             ai_category = result.get("ai_category", "분류")
