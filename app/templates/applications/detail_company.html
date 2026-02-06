@@ -1,0 +1,972 @@
+{% extends "base.html" %}
+
+{% block title %}지원서 상세 - AI 과제 지원서 평가 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-gray-900">지원서 상세 정보</h2>
+        <div class="flex space-x-2">
+            {% if user.role == 'admin' %}
+            <button onclick="runAIEvaluation()" class="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md shadow-sm text-sm font-medium text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                <i class="fa-solid fa-robot mr-2"></i> AI 재평가
+            </button>
+            <button onclick="showEditModal()" class="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-pen-to-square mr-2"></i> 기본정보 수정
+            </button>
+            {% endif %}
+            <button onclick="history.back()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <i class="fa-solid fa-arrow-left mr-2"></i> 목록으로
+            </button>
+            {% if user.role == 'admin' %}
+            <button onclick="deleteApplication()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                <i class="fa-solid fa-trash mr-2"></i> 삭제
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="application-detail" class="space-y-6">
+        <!-- 로딩 중 -->
+        <div class="flex justify-center items-center py-20">
+            <div class="text-center">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+                <p class="text-gray-500 text-lg">데이터를 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 수정 모달 -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-lg font-bold text-gray-900">기본 정보 수정</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-500">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <form id="edit-form" class="mt-4" onsubmit="handleUpdate(event)">
+            <div class="space-y-4">
+                <div>
+                    <label for="edit-subject" class="block text-sm font-medium text-gray-700 mb-1">과제명 *</label>
+                    <input type="text" id="edit-subject" required class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-division" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
+                        <select id="edit-division" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                            <option value="">사업부 선택</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="edit-participant-count" class="block text-sm font-medium text-gray-700 mb-1">참여 인원</label>
+                        <input type="number" id="edit-participant-count" min="1" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-representative-name" class="block text-sm font-medium text-gray-700 mb-1">대표자 이름</label>
+                        <input type="text" id="edit-representative-name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+
+                    <div>
+                        <label for="edit-representative-knox-id" class="block text-sm font-medium text-gray-700 mb-1">대표자 Knox ID</label>
+                        <input type="text" id="edit-representative-knox-id" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    취소
+                </button>
+                <button type="submit" id="submit-btn" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* 마크다운 테이블 스타일 */
+.table-sm {
+    font-size: 0.9rem;
+}
+
+.table-bordered th,
+.table-bordered td {
+    vertical-align: middle;
+    padding: 0.5rem;
+}
+
+.table-light {
+    background-color: #f8f9fa;
+}
+
+/* 테이블 반응형 처리 */
+@media (max-width: 768px) {
+    .table-sm {
+        font-size: 0.8rem;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        padding: 0.3rem;
+    }
+}
+</style>
+
+<script>
+const applicationId = {{ application_id }};
+let currentApplication = null;
+let allEvaluations = [];
+let currentUserEvaluation = null;
+let allDepartments = [];
+
+// 애플리케이션 데이터 로드
+async function loadApplicationDetail() {
+    const container = document.getElementById('application-detail');
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${applicationId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load application');
+        }
+
+        const app = await response.json();
+        currentApplication = app; // 전역 변수에 저장
+
+        // AI 카테고리 파싱
+        let aiCategories = [];
+        if (app.ai_categories) {
+            try {
+                aiCategories = typeof app.ai_categories === 'string'
+                    ? JSON.parse(app.ai_categories)
+                    : app.ai_categories;
+            } catch (e) {
+                console.error('AI categories parsing error:', e);
+            }
+        }
+
+        // AI 평가 상세 파싱
+        let aiEvaluationDetail = {};
+        if (app.ai_evaluation_detail) {
+            try {
+                aiEvaluationDetail = typeof app.ai_evaluation_detail === 'string'
+                    ? JSON.parse(app.ai_evaluation_detail)
+                    : app.ai_evaluation_detail;
+            } catch (e) {
+                console.error('AI evaluation detail parsing error:', e);
+            }
+        }
+
+        // 기술 역량 파싱
+        let techCapabilities = [];
+        if (app.tech_capabilities) {
+            try {
+                techCapabilities = typeof app.tech_capabilities === 'string'
+                    ? JSON.parse(app.tech_capabilities)
+                    : app.tech_capabilities;
+            } catch (e) {
+                console.error('Tech capabilities parsing error:', e);
+            }
+        }
+
+        container.innerHTML = `
+            <!-- 기본 정보 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fa-solid fa-file-invoice text-blue-500 mr-2"></i> 기본 정보
+                    </h3>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">과제명</label>
+                        <div class="text-base font-medium text-gray-900">${app.subject || '-'}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">사업부 / 부서</label>
+                        <div class="text-base text-gray-900">${app.division || '-'} / ${app.department_name || '-'}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">참여 인원</label>
+                        <div class="text-base text-gray-900">${app.participant_count || '-'}명</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">대표자</label>
+                        <div class="text-base text-gray-900 flex items-center">
+                            <span class="font-medium mr-1">${app.representative_name || '-'}</span>
+                            <span class="text-gray-500 text-sm">(${app.representative_knox_id || '-'})</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">등록일</label>
+                        <div class="text-base text-gray-900">${new Date(app.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">상태</label>
+                        <div>
+                            <span class="${getStatusClass(app.status)}">${getStatusText(app.status)}</span>
+                        </div>
+                    </div>
+                    ${app.confluence_page_url ? `
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">원본 문서</label>
+                        <div>
+                            <a href="${app.confluence_page_url}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm">
+                                <i class="fa-brands fa-confluence mr-2"></i>
+                                Confluence에서 보기
+                                <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- AI 요약 결과 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-blue-900 flex items-center">
+                        <i class="fa-solid fa-robot text-blue-600 mr-2"></i> AI 분석 리포트
+                    </h3>
+                    <span id="ai-grade-badge"></span>
+                </div>
+                <div class="p-6" id="ai-report-content">
+                    <div class="flex justify-center py-4">
+                        <i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 과제 상세 내용 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fa-solid fa-align-left text-blue-500 mr-2"></i> 과제 상세 내용
+                    </h3>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    <div class="p-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">현재 업무 (AS-IS)</label>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.current_work || '-')}</div>
+                    </div>
+                    <div class="p-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Pain Point (문제점)</label>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.pain_point || '-')}</div>
+                    </div>
+                    <div class="p-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">개선 아이디어 (TO-BE)</label>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.improvement_idea || '-')}</div>
+                    </div>
+                    <div class="p-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">기대 효과</label>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.expected_effect || '-')}</div>
+                    </div>
+                    <div class="p-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">기타 / 바라는 점</label>
+                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.hope || '-'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 기술 역량 -->
+            ${Array.isArray(techCapabilities) && techCapabilities.length > 0 ? `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fa-solid fa-code text-blue-500 mr-2"></i> 기술 역량
+                    </h3>
+                </div>
+                <div class="p-6">
+                    ${(() => {
+                        // 카테고리별로 그룹화
+                        const grouped = {};
+                        techCapabilities.forEach(item => {
+                            const category = item.category || '기타';
+                            if (!grouped[category]) {
+                                grouped[category] = [];
+                            }
+                            grouped[category].push(item);
+                        });
+
+                        // 각 카테고리별로 렌더링
+                        return Object.entries(grouped).map(([category, items]) => `
+                            <div class="mb-6 last:mb-0">
+                                <h4 class="text-sm font-bold text-gray-700 mb-3 pb-2 border-b border-gray-200">
+                                    <i class="fa-solid fa-folder text-blue-500 mr-2"></i>${category}
+                                </h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    ${items.map(item => {
+                                        const levelText = ['', '기초', '활용가능', '숙련'][item.level] || item.level;
+                                        const levelColor = item.level === 3 ? 'bg-green-100 text-green-800' :
+                                                          item.level === 2 ? 'bg-blue-100 text-blue-800' :
+                                                          'bg-gray-100 text-gray-800';
+                                        return `
+                                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100 hover:shadow-sm transition-shadow">
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <span class="text-xs font-medium text-gray-500">${item.field || '기타'}</span>
+                                                    <span class="text-xs px-2 py-0.5 rounded-full ${levelColor}">Lv.${item.level}</span>
+                                                </div>
+                                                <div class="text-sm font-semibold text-gray-900">${item.skill}</div>
+                                                <div class="text-xs text-gray-500 mt-1">${levelText}</div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `).join('');
+                    })()}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- 사용자 평가 -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fa-solid fa-gavel text-blue-500 mr-2"></i> 심사위원 평가
+                    </h3>
+                    ${(user.role === 'admin' || user.role ==='reviewer') ? `
+                        <button onclick="showEvaluationForm()" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i class="fa-solid fa-pen mr-1.5"></i> ${currentUserEvaluation ? '내 평가 수정' : '평가하기'}
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="p-6">
+                    <div id="evaluations-list" class="space-y-4">
+                        <div class="flex justify-center py-4">
+                            <i class="fa-solid fa-circle-notch fa-spin text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 평가 폼 (숨김) -->
+            <div id="evaluation-form" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="hideEvaluationForm()"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div class="sm:flex sm:items-start">
+                                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                                    <i class="fa-solid fa-pen text-blue-600"></i>
+                                </div>
+                                <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="evaluation-form-title">평가 작성</h3>
+                                    <div class="mt-4">
+                                        <form onsubmit="submitEvaluation(event)" id="eval-form">
+                                            <div class="mb-4">
+                                                <label for="grade" class="block text-sm font-medium text-gray-700 mb-1">등급 *</label>
+                                                <select id="grade" name="grade" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border" required>
+                                                    <option value="">선택하세요</option>
+                                                    <option value="S">S - 최우수 (탁월함)</option>
+                                                    <option value="A">A - 우수 (매우 좋음)</option>
+                                                    <option value="B">B - 양호 (좋음)</option>
+                                                    <option value="C">C - 보통 (평범함)</option>
+                                                    <option value="D">D - 미흡 (부족함)</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label for="comment" class="block text-sm font-medium text-gray-700 mb-1">심사 의견 *</label>
+                                                <textarea id="comment" name="comment" rows="5" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md p-2" placeholder="구체적인 심사 의견을 작성해주세요." required></textarea>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                            <button type="button" onclick="document.getElementById('eval-form').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}))" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                                제출하기
+                            </button>
+                            <button type="button" onclick="hideEvaluationForm()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                취소
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // HTML 렌더링 후 평가 목록 로드
+        await loadEvaluations();
+
+    } catch (error) {
+        console.error('Error loading application:', error);
+        container.innerHTML = `
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700">지원서를 불러오는 중 오류가 발생했습니다.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 헬퍼 함수들
+function renderTextWithImages(text) {
+    if (!text) return '';
+
+    const lines = text.split('\n');
+    let html = '';
+    let inTable = false;
+    let tableRows = [];
+
+    lines.forEach(line => {
+        const trimmedLine = line.trim();
+
+        // 마크다운 테이블 감지 (| 로 시작하고 끝나는 줄)
+        if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                tableRows = [];
+            }
+            tableRows.push(trimmedLine);
+        } else {
+            // 테이블이 끝났으면 HTML로 변환
+            if (inTable) {
+                html += convertMarkdownTableToHtml(tableRows);
+                inTable = false;
+                tableRows = [];
+            }
+
+            // 이미지 처리
+            if (trimmedLine.startsWith('![](') && trimmedLine.endsWith(')')) {
+                const imageUrl = trimmedLine.substring(4, trimmedLine.length - 1);
+                html += `<img src="${imageUrl}" class="img-fluid my-2" style="max-width: 100%;">`;
+            } else if (trimmedLine) {
+                html += `<p>${trimmedLine}</p>`;
+            }
+        }
+    });
+
+    // 마지막에 테이블이 남아있는 경우 처리
+    if (inTable && tableRows.length > 0) {
+        html += convertMarkdownTableToHtml(tableRows);
+    }
+
+    return html;
+}
+
+function convertMarkdownTableToHtml(markdownRows) {
+    if (markdownRows.length === 0) return '';
+
+    let html = '<table class="table table-bordered table-sm my-3" style="width: 100%; border-collapse: collapse;">';
+    let isFirstRow = true;
+
+    markdownRows.forEach((row, index) => {
+        // | 제거하고 셀 분리
+        const cells = row.split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell);  // 빈 문자열 제거
+
+        // 구분선(---)은 건너뛰기
+        if (cells.length > 0 && cells[0].match(/^-+$/)) {
+            return;
+        }
+
+        // 첫 번째 행은 헤더로 처리
+        const tag = isFirstRow ? 'th' : 'td';
+        const rowClass = isFirstRow ? ' class="table-light"' : '';
+        const bgStyle = isFirstRow ? ' style="background-color: #f8f9fa;"' : '';
+
+        html += `<tr${rowClass}${bgStyle}>`;
+        cells.forEach(cell => {
+            // 이스케이프된 파이프 복원
+            const cellContent = cell.replace(/\\\|/g, '|');
+            html += `<${tag} style="border: 1px solid #ddd; padding: 8px;">${cellContent}</${tag}>`;
+        });
+        html += '</tr>';
+
+        if (isFirstRow) isFirstRow = false;
+    });
+
+    html += '</table>';
+    return html;
+}
+
+function getGradeBadgeClass(grade, isLarge = false) {
+    const baseClasses = isLarge
+        ? "inline-flex items-center px-3 py-1 rounded-full text-sm font-bold shadow-sm"
+        : "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+
+    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
+    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
+    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
+function getStatusClass(status) {
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    if (status === 'user_evaluated') return `${baseClasses} bg-blue-100 text-blue-800`;
+    if (status === 'ai_evaluated') return `${baseClasses} bg-green-100 text-green-800`;
+    return `${baseClasses} bg-gray-100 text-gray-800`;
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'pending': '대기',
+        'ai_evaluated': 'AI 평가 완료',
+        'user_evaluated': '심사 완료',
+        'approved': '승인',
+        'rejected': '반려'
+    };
+    return statusMap[status] || status;
+}
+
+async function loadEvaluations() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${applicationId}/evaluations`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load evaluations');
+        }
+
+        allEvaluations = await response.json();
+
+        // 현재 사용자의 평가 찾기
+        currentUserEvaluation = allEvaluations.find(e => e.is_current_user);
+
+        renderEvaluations();
+
+        // AI 분석 리포트 렌더링 (평가 정보가 로드된 후)
+        renderAIReport();
+    } catch (error) {
+        console.error('Error loading evaluations:', error);
+        document.getElementById('evaluations-list').innerHTML =
+            '<p class="text-red-500 text-sm p-4">평가 목록을 불러오는데 실패했습니다.</p>';
+    }
+}
+
+// 사업부 목록 로드
+async function loadDepartments() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('/api/departments', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load departments');
+        }
+
+        allDepartments = await response.json();
+
+        // 사업부 드롭다운에 옵션 추가
+        const select = document.getElementById('edit-division');
+        allDepartments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading departments:', error);
+    }
+}
+
+function renderEvaluations() {
+    const container = document.getElementById('evaluations-list');
+
+    if (allEvaluations.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                <p class="text-gray-500 text-sm">아직 등록된 평가가 없습니다.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+
+    allEvaluations.forEach((evaluation, index) => {
+        const isCurrentUser = evaluation.is_current_user;
+        const bgClass = isCurrentUser ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200';
+
+        html += `
+            <div class="rounded-lg border ${bgClass} p-4 transition-shadow hover:shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="${getGradeBadgeClass(evaluation.grade)}">${evaluation.grade}</span>
+                        <span class="font-medium text-gray-900">${evaluation.evaluator_name}</span>
+                        ${isCurrentUser ? '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">내 평가</span>' : ''}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-500">${new Date(evaluation.created_at).toLocaleString('ko-KR')}</span>
+                        ${isCurrentUser ? `
+                            <button onclick="editMyEvaluation()" class="text-blue-600 hover:text-blue-700 text-sm">
+                                <i class="fa-solid fa-pen-to-square"></i> 수정
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${evaluation.comment || '-'}</div>
+            </div>
+        `;
+    });
+
+    // 평가 통계 추가 (관리자만)
+    if (user.role === 'admin' && allEvaluations.length > 1) {
+        const gradeCount = {};
+        allEvaluations.forEach(e => {
+            gradeCount[e.grade] = (gradeCount[e.grade] || 0) + 1;
+        });
+
+        html += `
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">평가 요약</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${Object.entries(gradeCount).sort().map(([grade, count]) => `
+                        <span class="${getGradeBadgeClass(grade)}">${grade}: ${count}명</span>
+                    `).join('')}
+                </div>
+                <p class="text-xs text-gray-500 mt-2">총 ${allEvaluations.length}명이 평가했습니다.</p>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+// AI 분석 리포트 렌더링
+function renderAIReport() {
+    if (!currentApplication) return;
+
+    const app = currentApplication;
+    const badgeContainer = document.getElementById('ai-grade-badge');
+    const contentContainer = document.getElementById('ai-report-content');
+
+    // AI 평가 상세 파싱
+    let aiEvaluationDetail = {};
+    if (app.ai_evaluation_detail) {
+        try {
+            aiEvaluationDetail = typeof app.ai_evaluation_detail === 'string'
+                ? JSON.parse(app.ai_evaluation_detail)
+                : app.ai_evaluation_detail;
+        } catch (e) {
+            console.error('AI evaluation detail parsing error:', e);
+        }
+    }
+
+    // AI 등급 배지 렌더링
+    if (app.ai_grade && (user.role === 'admin' || currentUserEvaluation)) {
+        badgeContainer.innerHTML = `<span class="${getGradeBadgeClass(app.ai_grade, true)} text-sm px-3 py-1">AI 등급: ${app.ai_grade}</span>`;
+    } else {
+        badgeContainer.innerHTML = '';
+    }
+
+    // AI 분석 리포트 컨텐츠 렌더링 (기존 detail.html의 renderAIReport 로직 유지)
+    if (app.ai_grade && (user.role === 'admin' || currentUserEvaluation)) {
+        contentContainer.innerHTML = `
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            이 리포트는 AI가 지원서 내용을 분석하여 생성한 참고 자료입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <p class="text-gray-600 text-sm">AI 분석 리포트가 표시됩니다.</p>
+        `;
+    } else if (app.ai_grade && user.role === 'reviewer' && !currentUserEvaluation) {
+        contentContainer.innerHTML = `
+            <div class="text-center py-10">
+                <i class="fa-solid fa-lock text-yellow-300 text-4xl mb-3"></i>
+                <p class="text-gray-700 font-medium mb-2">본인 평가를 먼저 완료해주세요</p>
+                <p class="text-gray-500 text-sm">공정한 심사를 위해 본인 평가 완료 후 AI 분석 결과를 확인할 수 있습니다.</p>
+            </div>
+        `;
+    } else {
+        contentContainer.innerHTML = `
+            <div class="text-center py-10">
+                <i class="fa-solid fa-hourglass-half text-gray-300 text-4xl mb-3"></i>
+                <p class="text-gray-500">아직 AI 평가가 진행되지 않았습니다.</p>
+            </div>
+        `;
+    }
+}
+
+function showEvaluationForm() {
+    const form = document.getElementById('evaluation-form');
+    const title = document.getElementById('evaluation-form-title');
+
+    // 현재 사용자의 평가가 있으면 폼에 채우기
+    if (currentUserEvaluation) {
+        title.textContent = '내 평가 수정';
+        document.getElementById('grade').value = currentUserEvaluation.grade;
+        document.getElementById('comment').value = currentUserEvaluation.comment || '';
+    } else {
+        title.textContent = '평가 작성';
+        document.getElementById('grade').value = '';
+        document.getElementById('comment').value = '';
+    }
+
+    form.classList.remove('hidden');
+}
+
+function hideEvaluationForm() {
+    document.getElementById('evaluation-form').classList.add('hidden');
+}
+
+async function submitEvaluation(event) {
+    event.preventDefault();
+
+    const grade = document.getElementById('grade').value;
+    const comment = document.getElementById('comment').value;
+
+    if (!grade || !comment) {
+        alert('등급과 코멘트를 모두 입력해주세요.');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${applicationId}/evaluate`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ grade, comment })
+        });
+
+        if (response.ok) {
+            const isUpdate = currentUserEvaluation !== null;
+            // 모달 닫고 리로드
+            hideEvaluationForm();
+            await loadEvaluations(); // 평가 목록 다시 로드
+
+            // 성공 토스트 메시지 (간단하게 구현)
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
+            alertDiv.innerHTML = `<i class="fa-solid fa-check-circle mr-2"></i> ${isUpdate ? '평가가 수정되었습니다.' : '평가가 제출되었습니다.'}`;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 3000);
+
+        } else {
+            const error = await response.json();
+            alert(`평가 ${currentUserEvaluation ? '수정' : '제출'} 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error submitting evaluation:', error);
+        alert('평가 제출 중 오류가 발생했습니다.');
+    }
+}
+
+// 수정 모달 표시
+function showEditModal() {
+    if (!currentApplication) {
+        alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    // 현재 값으로 폼 채우기
+    document.getElementById('edit-subject').value = currentApplication.subject || '';
+
+    // 사업부 선택 (department_id가 있으면 그것을 사용, 없으면 division 이름으로 매칭)
+    const selectElement = document.getElementById('edit-division');
+    if (currentApplication.department_id) {
+        selectElement.value = currentApplication.department_id;
+    } else if (currentApplication.division) {
+        // division 이름으로 매칭
+        const matchingDept = allDepartments.find(d => d.name === currentApplication.division);
+        selectElement.value = matchingDept ? matchingDept.id : '';
+    } else {
+        selectElement.value = '';
+    }
+
+    document.getElementById('edit-participant-count').value = currentApplication.participant_count || '';
+    document.getElementById('edit-representative-name').value = currentApplication.representative_name || '';
+    document.getElementById('edit-representative-knox-id').value = currentApplication.representative_knox_id || '';
+
+    // 모달 표시
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+// 수정 모달 닫기
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+// 수정 저장
+async function handleUpdate(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('submit-btn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 저장 중...';
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const departmentId = document.getElementById('edit-division').value;
+        const updateData = {
+            subject: document.getElementById('edit-subject').value,
+            department_id: departmentId ? parseInt(departmentId) : null,
+            participant_count: parseInt(document.getElementById('edit-participant-count').value) || null,
+            representative_name: document.getElementById('edit-representative-name').value || null,
+            representative_knox_id: document.getElementById('edit-representative-knox-id').value || null
+        };
+
+        const response = await fetch(`/api/applications/${applicationId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+
+        if (response.ok) {
+            alert('✅ 지원서 정보가 수정되었습니다.');
+            closeEditModal();
+            // 페이지 새로고침
+            await loadApplicationDetail();
+        } else {
+            const error = await response.json();
+            alert(`❌ 수정 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error updating application:', error);
+        alert('❌ 수정 중 오류가 발생했습니다.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+}
+
+// AI 재평가 실행
+async function runAIEvaluation() {
+    if (!currentApplication) {
+        alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    if (!confirm('이 지원서에 대해 AI 재평가를 실행하시겠습니까?\n\n⚠️ 기존 AI 평가 결과가 새로운 결과로 대체됩니다.\n⚠️ LLM API 비용이 발생합니다.')) {
+        return;
+    }
+
+    // 버튼 찾기 및 비활성화
+    const buttons = document.querySelectorAll('button');
+    let aiEvalBtn = null;
+    buttons.forEach(btn => {
+        if (btn.textContent.includes('AI 재평가')) {
+            aiEvalBtn = btn;
+        }
+    });
+
+    if (aiEvalBtn) {
+        const originalText = aiEvalBtn.innerHTML;
+        aiEvalBtn.disabled = true;
+        aiEvalBtn.innerHTML = '<i class="fa-solid fa-robot fa-bounce mr-2"></i> AI 평가 중...';
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`/api/evaluations/${applicationId}/re-evaluate`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert('✅ AI 재평가가 완료되었습니다!\n\n페이지가 새로고침되어 새로운 평가 결과를 표시합니다.');
+                // 페이지 새로고침
+                await loadApplicationDetail();
+            } else {
+                const error = await response.json();
+                alert(`❌ AI 재평가 실패: ${error.detail}`);
+            }
+        } catch (error) {
+            console.error('Error running AI evaluation:', error);
+            alert('❌ AI 재평가 중 오류가 발생했습니다.\n\n네트워크 연결이나 LLM API 상태를 확인해주세요.');
+        } finally {
+            if (aiEvalBtn) {
+                aiEvalBtn.disabled = false;
+                aiEvalBtn.innerHTML = originalText;
+            }
+        }
+    }
+}
+
+// 내 평가 수정
+function editMyEvaluation() {
+    showEvaluationForm();
+}
+
+// 삭제
+async function deleteApplication() {
+    if (!confirm('정말 이 지원서를 삭제하시겠습니까? 복구할 수 없습니다.')) {
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/applications/${applicationId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            alert('지원서가 삭제되었습니다.');
+            window.location.href = '/applications';
+        } else {
+            const error = await response.json();
+            alert(`삭제 실패: ${error.detail}`);
+        }
+    } catch (error) {
+        console.error('Error deleting application:', error);
+        alert('삭제 중 오류가 발생했습니다.');
+    }
+}
+
+const user = {
+    id: {{ user.id }},
+    username: "{{ user.username }}",
+    name: "{{ user.name }}",
+    role: "{{ user.role }}",
+    department_id: {{ user.department_id if user.department_id else 'null' }}
+};
+
+// 페이지 로드 시 실행
+loadDepartments();
+loadApplicationDetail();
+</script>
+{% endblock %}
