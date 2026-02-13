@@ -50,6 +50,9 @@
                         <a href="/applications" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500">
                             지원서 목록
                         </a>
+                        <a href="/compare" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500">
+                            <i class="fa-solid fa-scale-balanced mr-1"></i> 지원서 비교
+                        </a>
                         {% if user.role == 'admin' %}
                         <div class="relative group py-5">
                             <button class="nav-link inline-flex items-center gap-1">
@@ -59,6 +62,8 @@
                                 <a href="/admin/users" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">사용자 관리</a>
                                 <a href="/admin/departments" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">사업부 관리</a>
                                 <a href="/admin/categories" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">카테고리 관리</a>
+                                <a href="/admin/criteria" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">평가 기준 관리</a>
+                                <a href="/admin/scheduled-jobs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">스케줄 작업 관리</a>
                                 <a href="/admin/sync" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">데이터 동기화</a>
                             </div>
                         </div>

@@ -70,3 +70,13 @@ dist/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Claude Code and OMC
+.claude/
+.omc/
+
+# Downloaded images from Confluence
+images/
+
+# Windows
+nul

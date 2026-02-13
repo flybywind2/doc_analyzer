@@ -46,14 +46,14 @@
                 <i class="fa-solid fa-times text-xl"></i>
             </button>
         </div>
-        
+
         <form id="edit-form" class="mt-4" onsubmit="handleUpdate(event)">
             <div class="space-y-4">
                 <div>
                     <label for="edit-subject" class="block text-sm font-medium text-gray-700 mb-1">과제명 *</label>
                     <input type="text" id="edit-subject" required class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
                 </div>
-                
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="edit-division" class="block text-sm font-medium text-gray-700 mb-1">사업부</label>
@@ -61,26 +61,26 @@
                             <option value="">사업부 선택</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <label for="edit-participant-count" class="block text-sm font-medium text-gray-700 mb-1">참여 인원</label>
                         <input type="number" id="edit-participant-count" min="1" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
                     </div>
                 </div>
-                
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="edit-representative-name" class="block text-sm font-medium text-gray-700 mb-1">대표자 이름</label>
                         <input type="text" id="edit-representative-name" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
                     </div>
-                    
+
                     <div>
                         <label for="edit-representative-knox-id" class="block text-sm font-medium text-gray-700 mb-1">대표자 Knox ID</label>
                         <input type="text" id="edit-representative-knox-id" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
                     </div>
                 </div>
             </div>
-            
+
             <div class="mt-6 flex justify-end space-x-3">
                 <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     취소
@@ -93,6 +93,83 @@
     </div>
 </div>
 
+<style>
+/* 마크다운 테이블 스타일 */
+.table-sm {
+    font-size: 0.9rem;
+}
+
+.table-bordered th,
+.table-bordered td {
+    vertical-align: middle;
+    padding: 0.5rem;
+}
+
+.table-light {
+    background-color: #f8f9fa;
+}
+
+/* 마크다운 컨텐츠 스타일 (들여쓰기 보존) */
+.markdown-content {
+    white-space: pre-wrap; /* 공백과 들여쓰기 보존 */
+}
+
+/* 마크다운 헤딩 스타일 */
+.markdown-content h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-content h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-content h3 {
+    font-size: 1.25em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-content h4 {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-content h5 {
+    font-size: 1em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-content h6 {
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+/* 테이블 반응형 처리 */
+@media (max-width: 768px) {
+    .table-sm {
+        font-size: 0.8rem;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        padding: 0.3rem;
+    }
+}
+</style>
+
 <script>
 const applicationId = {{ application_id }};
 let currentApplication = null;
@@ -103,7 +180,7 @@ let allDepartments = [];
 // 애플리케이션 데이터 로드
 async function loadApplicationDetail() {
     const container = document.getElementById('application-detail');
-    
+
     try {
         const token = localStorage.getItem('access_token');
         const response = await fetch(`/api/applications/${applicationId}`, {
@@ -111,26 +188,26 @@ async function loadApplicationDetail() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to load application');
         }
-        
+
         const app = await response.json();
         currentApplication = app; // 전역 변수에 저장
-        
+
         // AI 카테고리 파싱
         let aiCategories = [];
         if (app.ai_categories) {
             try {
-                aiCategories = typeof app.ai_categories === 'string' 
-                    ? JSON.parse(app.ai_categories) 
+                aiCategories = typeof app.ai_categories === 'string'
+                    ? JSON.parse(app.ai_categories)
                     : app.ai_categories;
             } catch (e) {
                 console.error('AI categories parsing error:', e);
             }
         }
-        
+
         // AI 평가 상세 파싱
         let aiEvaluationDetail = {};
         if (app.ai_evaluation_detail) {
@@ -142,7 +219,7 @@ async function loadApplicationDetail() {
                 console.error('AI evaluation detail parsing error:', e);
             }
         }
-        
+
         // 기술 역량 파싱
         let techCapabilities = [];
         if (app.tech_capabilities) {
@@ -154,7 +231,7 @@ async function loadApplicationDetail() {
                 console.error('Tech capabilities parsing error:', e);
             }
         }
-        
+
         container.innerHTML = `
             <!-- 기본 정보 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -208,7 +285,7 @@ async function loadApplicationDetail() {
                     ` : ''}
                 </div>
             </div>
-            
+
             <!-- AI 요약 결과 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
@@ -223,7 +300,7 @@ async function loadApplicationDetail() {
                     </div>
                 </div>
             </div>
-            
+
             <!-- 과제 상세 내용 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
@@ -234,27 +311,27 @@ async function loadApplicationDetail() {
                 <div class="divide-y divide-gray-100">
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">현재 업무 (AS-IS)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.current_work || '-')}</div>
+                        <div class="markdown-content bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed text-sm">${renderTextWithImages(app.current_work || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Pain Point (문제점)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.pain_point || '-')}</div>
+                        <div class="markdown-content bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed text-sm">${renderTextWithImages(app.pain_point || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">개선 아이디어 (TO-BE)</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.improvement_idea || '-')}</div>
+                        <div class="markdown-content bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed text-sm">${renderTextWithImages(app.improvement_idea || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">기대 효과</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${renderTextWithImages(app.expected_effect || '-')}</div>
+                        <div class="markdown-content bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed text-sm">${renderTextWithImages(app.expected_effect || '-')}</div>
                     </div>
                     <div class="p-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">기타 / 바라는 점</label>
-                        <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">${app.hope || '-'}</div>
+                        <div class="markdown-content bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed text-sm">${app.hope || '-'}</div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- 기술 역량 -->
             ${Array.isArray(techCapabilities) && techCapabilities.length > 0 ? `
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -305,14 +382,14 @@ async function loadApplicationDetail() {
                 </div>
             </div>
             ` : ''}
-            
+
             <!-- 사용자 평가 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900 flex items-center">
                         <i class="fa-solid fa-gavel text-blue-500 mr-2"></i> 심사위원 평가
                     </h3>
-                    ${(user.role === 'admin' || (app.department_id && user.department_id === app.department_id)) ? `
+                    ${(user.role === 'admin' || user.role ==='reviewer') ? `
                         <button onclick="showEvaluationForm()" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                             <i class="fa-solid fa-pen mr-1.5"></i> ${currentUserEvaluation ? '내 평가 수정' : '평가하기'}
                         </button>
@@ -326,7 +403,7 @@ async function loadApplicationDetail() {
                     </div>
                 </div>
             </div>
-            
+
             <!-- 평가 폼 (숨김) -->
             <div id="evaluation-form" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                 <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -374,10 +451,10 @@ async function loadApplicationDetail() {
                 </div>
             </div>
         `;
-        
+
         // HTML 렌더링 후 평가 목록 로드
         await loadEvaluations();
-        
+
     } catch (error) {
         console.error('Error loading application:', error);
         container.innerHTML = `
@@ -397,28 +474,114 @@ async function loadApplicationDetail() {
 
 // 헬퍼 함수들
 function renderTextWithImages(text) {
-    if (!text) return text;
+    if (!text) return '';
 
-    // Markdown 이미지 패턴: ![alt](url)
-    const imagePattern = /!\[(.*?)\]\((.*?)\)/g;
+    // &nbsp; 마커를 실제 공백으로 변환
+    text = text.replace(/&nbsp;/g, ' ');
 
-    const result = text.replace(imagePattern, (match, alt, url) => {
-        // HTML 이스케이프
-        const safeAlt = alt.replace(/"/g, '&quot;');
-        const safeUrl = url.replace(/"/g, '&quot;');
+    const lines = text.split('\n');
+    let html = '';
+    let inTable = false;
+    let tableRows = [];
 
-        // 로컬에 저장된 이미지를 표시
-        return `<img src="${safeUrl}" alt="${safeAlt}" class="max-w-full h-auto my-4 rounded-lg shadow-sm border border-gray-200" style="max-height: 500px; object-fit: contain;" />`;
+    lines.forEach(line => {
+        const trimmedLine = line.trim();
+
+        // 마크다운 테이블 감지 (| 로 시작하고 끝나는 줄)
+        if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                tableRows = [];
+            }
+            tableRows.push(trimmedLine);
+        } else {
+            // 테이블이 끝났으면 HTML로 변환
+            if (inTable) {
+                html += convertMarkdownTableToHtml(tableRows);
+                inTable = false;
+                tableRows = [];
+            }
+
+            // 헤딩 처리 (# ~ ######)
+            const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+                const level = headingMatch[1].length;
+                const headingText = headingMatch[2];
+                html += `<h${level}>${headingText}</h${level}>`;
+            }
+            // 이미지 처리
+            else if (trimmedLine.startsWith('![](') && trimmedLine.endsWith(')')) {
+                const imageUrl = trimmedLine.substring(4, trimmedLine.length - 1);
+                html += `<img src="${imageUrl}" class="img-fluid my-2" style="max-width: 100%;">`;
+            }
+            // 일반 텍스트 (볼드, 이탤릭, 들여쓰기 처리 포함)
+            else if (line) {
+                // 원본 line을 사용하여 들여쓰기 보존
+                html += `<p>${convertInlineMarkdown(line)}</p>`;
+            }
+        }
     });
 
-    return result;
+    // 마지막에 테이블이 남아있는 경우 처리
+    if (inTable && tableRows.length > 0) {
+        html += convertMarkdownTableToHtml(tableRows);
+    }
+
+    return html;
+}
+
+function convertInlineMarkdown(text) {
+    // **bold** 처리 (먼저 처리해야 *italic*과 충돌 방지)
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // *italic* 처리 (** 이미 처리되었으므로 단일 *만 남음)
+    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    return text;
+}
+
+function convertMarkdownTableToHtml(markdownRows) {
+    if (markdownRows.length === 0) return '';
+
+    let html = '<table class="table table-bordered table-sm my-3" style="width: 100%; border-collapse: collapse;">';
+    let isFirstRow = true;
+
+    markdownRows.forEach((row, index) => {
+        // | 제거하고 셀 분리
+        const cells = row.split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell);  // 빈 문자열 제거
+
+        // 구분선(---)은 건너뛰기
+        if (cells.length > 0 && cells[0].match(/^-+$/)) {
+            return;
+        }
+
+        // 첫 번째 행은 헤더로 처리
+        const tag = isFirstRow ? 'th' : 'td';
+        const rowClass = isFirstRow ? ' class="table-light"' : '';
+        const bgStyle = isFirstRow ? ' style="background-color: #f8f9fa;"' : '';
+
+        html += `<tr${rowClass}${bgStyle}>`;
+        cells.forEach(cell => {
+            // 이스케이프된 파이프 복원
+            const cellContent = cell.replace(/\\\|/g, '|');
+            html += `<${tag} style="border: 1px solid #ddd; padding: 8px;">${cellContent}</${tag}>`;
+        });
+        html += '</tr>';
+
+        if (isFirstRow) isFirstRow = false;
+    });
+
+    html += '</table>';
+    return html;
 }
 
 function getGradeBadgeClass(grade, isLarge = false) {
-    const baseClasses = isLarge 
-        ? "inline-flex items-center px-3 py-1 rounded-full text-sm font-bold shadow-sm" 
+    const baseClasses = isLarge
+        ? "inline-flex items-center px-3 py-1 rounded-full text-sm font-bold shadow-sm"
         : "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
-    
+
     if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
     if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
     if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
@@ -452,13 +615,13 @@ async function loadEvaluations() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to load evaluations');
         }
-        
+
         allEvaluations = await response.json();
-        
+
         // 현재 사용자의 평가 찾기
         currentUserEvaluation = allEvaluations.find(e => e.is_current_user);
 
@@ -504,7 +667,7 @@ async function loadDepartments() {
 
 function renderEvaluations() {
     const container = document.getElementById('evaluations-list');
-    
+
     if (allEvaluations.length === 0) {
         container.innerHTML = `
             <div class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -513,13 +676,13 @@ function renderEvaluations() {
         `;
         return;
     }
-    
+
     let html = '';
-    
+
     allEvaluations.forEach((evaluation, index) => {
         const isCurrentUser = evaluation.is_current_user;
         const bgClass = isCurrentUser ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200';
-        
+
         html += `
             <div class="rounded-lg border ${bgClass} p-4 transition-shadow hover:shadow-sm">
                 <div class="flex items-center justify-between mb-3">
@@ -541,14 +704,14 @@ function renderEvaluations() {
             </div>
         `;
     });
-    
+
     // 평가 통계 추가 (관리자만)
     if (user.role === 'admin' && allEvaluations.length > 1) {
         const gradeCount = {};
         allEvaluations.forEach(e => {
             gradeCount[e.grade] = (gradeCount[e.grade] || 0) + 1;
         });
-        
+
         html += `
             <div class="mt-6 pt-4 border-t border-gray-200">
                 <h4 class="text-sm font-semibold text-gray-700 mb-2">평가 요약</h4>
@@ -561,7 +724,7 @@ function renderEvaluations() {
             </div>
         `;
     }
-    
+
     container.innerHTML = html;
 }
 
@@ -592,7 +755,7 @@ function renderAIReport() {
         badgeContainer.innerHTML = '';
     }
 
-    // AI 분석 리포트 컨텐츠 렌더링
+    // AI 분석 리포트 컨텐츠 렌더링 (기존 detail.html의 renderAIReport 로직 유지)
     if (app.ai_grade && (user.role === 'admin' || currentUserEvaluation)) {
         contentContainer.innerHTML = `
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md">
@@ -607,264 +770,7 @@ function renderAIReport() {
                     </div>
                 </div>
             </div>
-
-            <div class="space-y-8">
-                <!-- 1. AI 기술 분류 -->
-                <div>
-                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">1</span>
-                        AI 기술 분류
-                    </h4>
-                    <div class="pl-2">
-                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                            <i class="fa-solid fa-layer-group mr-2"></i>
-                            ${aiEvaluationDetail.ai_category || app.ai_category_primary || '미분류'}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- 2. 조직 관점의 경영효과 -->
-                <div>
-                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">2</span>
-                        조직 관점의 경영효과
-                    </h4>
-                    <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
-                        ${aiEvaluationDetail.business_impact || '정보 없음'}
-                    </div>
-                </div>
-
-                <!-- 3. AI 관점의 구현 가능성 -->
-                <div>
-                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">3</span>
-                        AI 관점의 구현 가능성
-                    </h4>
-                    <div class="bg-gray-50 rounded-lg p-4 text-gray-700 leading-relaxed border border-gray-100">
-                        ${aiEvaluationDetail.technical_feasibility || '정보 없음'}
-                    </div>
-                </div>
-
-                ${aiEvaluationDetail.debate_summary ? `
-                <!-- 3.5. AI 간 논의 요약 (3-Step Debate Mode) -->
-                <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-                    <h4 class="text-md font-bold text-purple-800 mb-3 flex items-center">
-                        <i class="fa-solid fa-comments text-purple-600 mr-2"></i>
-                        AI 평가자 간 논의 결과 (3단계 협의)
-                    </h4>
-                    <div class="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        ${aiEvaluationDetail.debate_summary}
-                    </div>
-                    <div class="mt-3 bg-white bg-opacity-70 rounded p-3 text-xs">
-                        <div class="flex items-center text-purple-700 font-semibold mb-2">
-                            <i class="fa-solid fa-diagram-project mr-2"></i>
-                            평가 프로세스
-                        </div>
-                        <div class="flex items-center text-gray-600 space-x-2">
-                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step 1: LLM A 초기 평가</span>
-                            <i class="fa-solid fa-arrow-right text-gray-400"></i>
-                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded">Step 2: LLM B 검토</span>
-                            <i class="fa-solid fa-arrow-right text-gray-400"></i>
-                            <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Step 3: LLM A 최종 결정</span>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
-
-                <!-- 4. 전체 지원서 5줄 요약 -->
-                <div>
-                    <h4 class="text-md font-bold text-gray-800 mb-3 flex items-center">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded mr-2">4</span>
-                        핵심 요약 (5줄)
-                    </h4>
-                    <ul class="space-y-2">
-                        ${aiEvaluationDetail.five_line_summary && aiEvaluationDetail.five_line_summary.length > 0 ?
-                            aiEvaluationDetail.five_line_summary.map(line => `
-                                <li class="flex items-start bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                                    <i class="fa-solid fa-check text-green-500 mt-1 mr-3 flex-shrink-0"></i>
-                                    <span class="text-gray-700">${line}</span>
-                                </li>
-                            `).join('') :
-                            '<li class="text-gray-500 italic">요약 정보가 없습니다.</li>'}
-                    </ul>
-                </div>
-
-                ${aiEvaluationDetail.evaluation_scores ? `
-                <!-- 5. 평가 기준별 상세 점수 (동적 렌더링) -->
-                <div class="mt-8 pt-6 border-t border-gray-200">
-                    <h4 class="text-md font-bold text-gray-800 mb-4 flex items-center">
-                        <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded mr-2">5</span>
-                        AI 등급 산정 근거 (평균: ${(() => {
-                            const scores = Object.values(aiEvaluationDetail.evaluation_scores).map(s => s.score);
-                            if (scores.length === 0) return '0.0';
-                            const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
-                            return avg;
-                        })()}/5.0 → ${app.ai_grade})
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${(() => {
-                            console.log('🔍 Rendering evaluation_scores:', aiEvaluationDetail.evaluation_scores);
-
-                            // 키별 메타데이터 매핑 (fallback용)
-                            const metaMap = {
-                                innovation: { icon: 'lightbulb', label: '혁신성', color: 'yellow' },
-                                feasibility: { icon: 'wrench', label: '실현가능성', color: 'green' },
-                                impact: { icon: 'chart-line', label: '효과성', color: 'blue' },
-                                clarity: { icon: 'crosshairs', label: '명확성', color: 'purple' }
-                            };
-
-                            // DB에 저장된 모든 평가 점수를 동적으로 렌더링
-                            return Object.entries(aiEvaluationDetail.evaluation_scores).map(([key, data]) => {
-                                console.log(`  📊 Criterion: ${key}`, data);
-                                if (!data || typeof data !== 'object') return '';
-
-                                const score = data.score || 0;
-                                const rationale = data.rationale || '평가 근거가 없습니다.';
-                                const percentage = (score / 5) * 100;
-
-                                // 메타데이터 가져오기 (없으면 기본값)
-                                const meta = metaMap[key] || {
-                                    icon: 'star',
-                                    label: key.charAt(0).toUpperCase() + key.slice(1),
-                                    color: 'gray'
-                                };
-
-                                // 3단계 debate 점수 표시
-                                let scoreDisplay;
-                                if (data.score_a_initial && data.score_b_review && data.score_a_final) {
-                                    // 3-step debate mode
-                                    scoreDisplay = `${score}/5 <span class="text-xs text-gray-500">(A₁:${data.score_a_initial} → B:${data.score_b_review} → A₂:${data.score_a_final})</span>`;
-                                } else if (data.score_a && data.score_b) {
-                                    // 2-step mode (backward compatibility)
-                                    scoreDisplay = `${score}/5 <span class="text-xs text-gray-500">(A:${data.score_a}, B:${data.score_b})</span>`;
-                                } else {
-                                    // Single LLM mode
-                                    scoreDisplay = `${score}/5`;
-                                }
-
-                                // Tailwind CSS 완전 하드코딩 (purge 방지)
-                                let iconClass, scoreClass, barClass;
-
-                                if (meta.color === 'yellow') {
-                                    iconClass = 'text-yellow-500';
-                                    scoreClass = 'text-yellow-600';
-                                    barClass = 'bg-yellow-500';
-                                } else if (meta.color === 'green') {
-                                    iconClass = 'text-green-500';
-                                    scoreClass = 'text-green-600';
-                                    barClass = 'bg-green-500';
-                                } else if (meta.color === 'blue') {
-                                    iconClass = 'text-blue-500';
-                                    scoreClass = 'text-blue-600';
-                                    barClass = 'bg-blue-500';
-                                } else if (meta.color === 'purple') {
-                                    iconClass = 'text-purple-500';
-                                    scoreClass = 'text-purple-600';
-                                    barClass = 'bg-purple-500';
-                                } else {
-                                    iconClass = 'text-gray-500';
-                                    scoreClass = 'text-gray-600';
-                                    barClass = 'bg-gray-500';
-                                }
-
-                                return `
-                                    <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <div class="flex items-center">
-                                                <i class="fa-solid fa-${meta.icon} ${iconClass} mr-2"></i>
-                                                <h5 class="font-semibold text-gray-800">${meta.label}</h5>
-                                            </div>
-                                            <span class="text-2xl font-bold ${scoreClass}">${scoreDisplay}</span>
-                                        </div>
-                                        <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                            <div class="${barClass} h-2 rounded-full" style="width: ${percentage}%"></div>
-                                        </div>
-                                        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${rationale}</p>
-                                    </div>
-                                `;
-                            }).join('');
-                        })()}
-                    </div>
-                    <div class="mt-4 bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
-                        <strong>등급 기준:</strong>
-                        S등급(4.5~5.0), A등급(3.5~4.4), B등급(2.5~3.4), C등급(1.5~2.4), D등급(1.0~1.4)
-                    </div>
-                </div>
-                ` : Object.keys(aiEvaluationDetail).length > 0 && !aiEvaluationDetail.evaluation_scores ? `
-                <!-- 구버전 평가 데이터 표시 -->
-                <div class="mt-8 pt-6 border-t border-gray-200">
-                    <h4 class="text-md font-bold text-gray-800 mb-4 flex items-center">
-                        <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded mr-2">5</span>
-                        AI 등급 산정 근거 (구버전)
-                        <span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">이전 형식</span>
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${Object.entries(aiEvaluationDetail).filter(([key, data]) =>
-                            data && typeof data === 'object' && data.score !== undefined
-                        ).map(([key, data]) => {
-                            const score = data.score || 0;
-                            const comment = data.comment || data.rationale || '평가 근거가 없습니다.';
-                            const percentage = (score / 5) * 100;
-
-                            // 색상 할당 (순환)
-                            const colors = ['yellow', 'green', 'blue', 'purple'];
-                            const colorIndex = Object.keys(aiEvaluationDetail).indexOf(key) % colors.length;
-                            const color = colors[colorIndex];
-
-                            let iconClass, scoreClass, barClass;
-                            if (color === 'yellow') {
-                                iconClass = 'text-yellow-500';
-                                scoreClass = 'text-yellow-600';
-                                barClass = 'bg-yellow-500';
-                            } else if (color === 'green') {
-                                iconClass = 'text-green-500';
-                                scoreClass = 'text-green-600';
-                                barClass = 'bg-green-500';
-                            } else if (color === 'blue') {
-                                iconClass = 'text-blue-500';
-                                scoreClass = 'text-blue-600';
-                                barClass = 'bg-blue-500';
-                            } else {
-                                iconClass = 'text-purple-500';
-                                scoreClass = 'text-purple-600';
-                                barClass = 'bg-purple-500';
-                            }
-
-                            return `
-                                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <div class="flex items-center">
-                                            <i class="fa-solid fa-star ${iconClass} mr-2"></i>
-                                            <h5 class="font-semibold text-gray-800">${key}</h5>
-                                        </div>
-                                        <span class="text-2xl font-bold ${scoreClass}">${score}/5</span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                        <div class="${barClass} h-2 rounded-full" style="width: ${percentage}%"></div>
-                                    </div>
-                                    <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">${comment}</p>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                    <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                        <div class="flex items-start">
-                            <i class="fa-solid fa-circle-info text-yellow-600 mt-1 mr-3 flex-shrink-0"></i>
-                            <div class="text-sm text-yellow-800">
-                                <p class="font-semibold mb-1">이전 버전의 평가 결과입니다</p>
-                                <p class="text-sm text-yellow-700">상세한 평가 근거를 확인하려면 AI 재평가를 실행해주세요.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
-            </div>
-
-            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                <p class="text-xs text-gray-500">
-                    <i class="fa-solid fa-robot mr-1"></i> AI 분석은 지속적으로 개선되고 있습니다. 결과에 대한 피드백은 관리자에게 문의해주세요.
-                </p>
-            </div>
+            <p class="text-gray-600 text-sm">AI 분석 리포트가 표시됩니다.</p>
         `;
     } else if (app.ai_grade && user.role === 'reviewer' && !currentUserEvaluation) {
         contentContainer.innerHTML = `
@@ -887,7 +793,7 @@ function renderAIReport() {
 function showEvaluationForm() {
     const form = document.getElementById('evaluation-form');
     const title = document.getElementById('evaluation-form-title');
-    
+
     // 현재 사용자의 평가가 있으면 폼에 채우기
     if (currentUserEvaluation) {
         title.textContent = '내 평가 수정';
@@ -898,7 +804,7 @@ function showEvaluationForm() {
         document.getElementById('grade').value = '';
         document.getElementById('comment').value = '';
     }
-    
+
     form.classList.remove('hidden');
 }
 
@@ -908,15 +814,15 @@ function hideEvaluationForm() {
 
 async function submitEvaluation(event) {
     event.preventDefault();
-    
+
     const grade = document.getElementById('grade').value;
     const comment = document.getElementById('comment').value;
-    
+
     if (!grade || !comment) {
         alert('등급과 코멘트를 모두 입력해주세요.');
         return;
     }
-    
+
     try {
         const token = localStorage.getItem('access_token');
         const response = await fetch(`/api/applications/${applicationId}/evaluate`, {
@@ -927,20 +833,20 @@ async function submitEvaluation(event) {
             },
             body: JSON.stringify({ grade, comment })
         });
-        
+
         if (response.ok) {
             const isUpdate = currentUserEvaluation !== null;
             // 모달 닫고 리로드
             hideEvaluationForm();
             await loadEvaluations(); // 평가 목록 다시 로드
-            
+
             // 성공 토스트 메시지 (간단하게 구현)
             const alertDiv = document.createElement('div');
             alertDiv.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce';
             alertDiv.innerHTML = `<i class="fa-solid fa-check-circle mr-2"></i> ${isUpdate ? '평가가 수정되었습니다.' : '평가가 제출되었습니다.'}`;
             document.body.appendChild(alertDiv);
             setTimeout(() => alertDiv.remove(), 3000);
-            
+
         } else {
             const error = await response.json();
             alert(`평가 ${currentUserEvaluation ? '수정' : '제출'} 실패: ${error.detail}`);
@@ -989,12 +895,12 @@ function closeEditModal() {
 // 수정 저장
 async function handleUpdate(event) {
     event.preventDefault();
-    
+
     const submitBtn = document.getElementById('submit-btn');
     const originalText = submitBtn.innerHTML;
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 저장 중...';
-    
+
     try {
         const token = localStorage.getItem('access_token');
         const departmentId = document.getElementById('edit-division').value;
@@ -1005,7 +911,7 @@ async function handleUpdate(event) {
             representative_name: document.getElementById('edit-representative-name').value || null,
             representative_knox_id: document.getElementById('edit-representative-knox-id').value || null
         };
-        
+
         const response = await fetch(`/api/applications/${applicationId}`, {
             method: 'PUT',
             headers: {
@@ -1014,7 +920,7 @@ async function handleUpdate(event) {
             },
             body: JSON.stringify(updateData)
         });
-        
+
         if (response.ok) {
             alert('✅ 지원서 정보가 수정되었습니다.');
             closeEditModal();
@@ -1039,11 +945,11 @@ async function runAIEvaluation() {
         alert('지원서 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
         return;
     }
-    
+
     if (!confirm('이 지원서에 대해 AI 재평가를 실행하시겠습니까?\n\n⚠️ 기존 AI 평가 결과가 새로운 결과로 대체됩니다.\n⚠️ LLM API 비용이 발생합니다.')) {
         return;
     }
-    
+
     // 버튼 찾기 및 비활성화
     const buttons = document.querySelectorAll('button');
     let aiEvalBtn = null;
@@ -1052,12 +958,12 @@ async function runAIEvaluation() {
             aiEvalBtn = btn;
         }
     });
-    
+
     if (aiEvalBtn) {
         const originalText = aiEvalBtn.innerHTML;
         aiEvalBtn.disabled = true;
         aiEvalBtn.innerHTML = '<i class="fa-solid fa-robot fa-bounce mr-2"></i> AI 평가 중...';
-        
+
         try {
             const token = localStorage.getItem('access_token');
             const response = await fetch(`/api/evaluations/${applicationId}/re-evaluate`, {
@@ -1067,7 +973,7 @@ async function runAIEvaluation() {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.ok) {
                 const result = await response.json();
                 alert('✅ AI 재평가가 완료되었습니다!\n\n페이지가 새로고침되어 새로운 평가 결과를 표시합니다.');

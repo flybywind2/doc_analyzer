@@ -10,9 +10,9 @@ import csv
 import io
 from app.database import get_db
 from app.schemas.application import (
-    ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest
+    ApplicationResponse, ApplicationUpdate, ApplicationFilter, UserEvaluationSubmit, ConfluenceSyncRequest, ConfluenceSingleSyncRequest
 )
-from app.services.auth import get_current_user, get_current_active_admin
+from app.services.auth import get_current_user, get_current_active_admin, has_department_access, get_user_department_ids
 from app.services.confluence_parser import confluence_parser
 from app.models.user import User
 from app.models.application import Application
@@ -38,20 +38,21 @@ async def list_applications(
 ):
     """
     List applications with filtering
-    
+
     Reviewers can only see their department's applications
     Admins can see all applications
     """
     query = db.query(Application)
-    
+
     # Apply permission filter
     if current_user.role != "admin":
-        if not current_user.department_id:
+        department_ids = get_user_department_ids(current_user)
+        if not department_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User has no department assigned"
             )
-        query = query.filter(Application.department_id == current_user.department_id)
+        query = query.filter(Application.department_id.in_(department_ids))
     
     # Apply filters
     if department_id:
@@ -85,8 +86,17 @@ async def list_applications(
             app_data.department_name = app.department.name
         if app.evaluator:
             app_data.evaluator_name = app.evaluator.name
+
+        # 현재 사용자가 이 지원서를 평가했는지 확인
+        user_evaluation = db.query(EvaluationHistory).filter(
+            EvaluationHistory.application_id == app.id,
+            EvaluationHistory.evaluator_id == current_user.id,
+            EvaluationHistory.evaluator_type == 'USER'
+        ).first()
+        app_data.user_has_evaluated = user_evaluation is not None
+
         result.append(app_data)
-    
+
     return result
 
 
@@ -105,10 +115,10 @@ async def get_application(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to view this application"
@@ -179,10 +189,10 @@ async def submit_user_evaluation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to evaluate this application"
@@ -246,10 +256,10 @@ async def get_application_evaluations(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found"
         )
-    
+
     # Check permission
     if current_user.role != "admin":
-        if not current_user.department_id or app.department_id != current_user.department_id:
+        if not has_department_access(current_user, app.department_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No permission to view this application"
@@ -296,9 +306,37 @@ async def sync_confluence_data(
         batch_id=sync_request.batch_id,
         force_update=sync_request.force_update
     )
-    
+
     return {
         "message": "Sync completed",
+        "result": result
+    }
+
+
+@router.post("/sync/single")
+async def sync_single_confluence_page(
+    sync_request: ConfluenceSingleSyncRequest,
+    current_user: User = Depends(get_current_active_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Sync a single application from Confluence by page ID (admin only)
+    """
+    result = confluence_parser.sync_single_application(
+        db=db,
+        page_id=sync_request.page_id,
+        batch_id=sync_request.batch_id,
+        force_update=sync_request.force_update
+    )
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["error"]
+        )
+
+    return {
+        "message": f"Single page sync {result['action']}",
         "result": result
     }
 
@@ -311,20 +349,21 @@ async def export_applications_csv(
 ):
     """
     Export applications to CSV
-    
+
     Reviewers can only export their department's data
     Admins can export all data
     """
     query = db.query(Application)
-    
+
     # Apply permission filter
     if current_user.role != "admin":
-        if not current_user.department_id:
+        department_ids = get_user_department_ids(current_user)
+        if not department_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User has no department assigned"
             )
-        query = query.filter(Application.department_id == current_user.department_id)
+        query = query.filter(Application.department_id.in_(department_ids))
     elif department_id:
         query = query.filter(Application.department_id == department_id)
     

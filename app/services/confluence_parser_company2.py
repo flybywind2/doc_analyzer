@@ -1,5 +1,6 @@
 """
-Confluence Parser Service
+Confluence Parser Service (Company Version 2 with Full Markdown Support)
+Supports: Tables, Headings (h1~h6), Bold, Italic
 """
 import re
 import time
@@ -79,11 +80,83 @@ def download_image(image_url: str, auth: tuple) -> Optional[str]:
         return None
 
 
+def html_table_to_markdown(html_content, base_url: str = "", auth: Optional[tuple] = None) -> str:
+    """
+    Convert HTML content (including tables, headings, bold, italic) to markdown format
+
+    Args:
+        html_content: HTML string or BeautifulSoup element
+        base_url: Base URL for resolving relative image URLs
+        auth: Confluence authentication tuple for downloading images
+
+    Returns:
+        Markdown formatted string with all HTML converted to markdown
+    """
+    if not html_content:
+        return ""
+
+    # Convert to BeautifulSoup if string
+    if isinstance(html_content, str):
+        soup = BeautifulSoup(html_content, 'lxml')
+    else:
+        soup = html_content
+
+    # Find all tables and convert them to markdown
+    tables = soup.find_all('table')
+
+    for table in tables:
+        markdown_table = convert_table_to_markdown(table)
+        # Replace original table with markdown text
+        table.replace_with(BeautifulSoup(markdown_table, 'lxml'))
+
+    # Now use html_to_text for the rest (images, text, headings, bold, italic, etc.)
+    return html_to_text(soup, base_url, auth)
+
+
+def convert_table_to_markdown(table_element) -> str:
+    """
+    Convert BeautifulSoup table element to markdown table string
+
+    Args:
+        table_element: BeautifulSoup table element
+
+    Returns:
+        Markdown table string
+    """
+    rows = table_element.find_all('tr')
+    if not rows:
+        return ""
+
+    markdown_lines = []
+
+    for idx, row in enumerate(rows):
+        cells = row.find_all(['th', 'td'])
+        # Extract cell text, replace newlines with spaces, escape pipe characters
+        cell_texts = []
+        for cell in cells:
+            text = cell.get_text(strip=True).replace('\n', ' ').replace('|', '\\|')
+            cell_texts.append(text)
+
+        # Create markdown table row
+        markdown_line = '| ' + ' | '.join(cell_texts) + ' |'
+        markdown_lines.append(markdown_line)
+
+        # Add separator after first row
+        if idx == 0:
+            separator = '| ' + ' | '.join(['---'] * len(cells)) + ' |'
+            markdown_lines.append(separator)
+
+    return '\n' + '\n'.join(markdown_lines) + '\n'
+
+
 def html_to_text(element, base_url: str = "", auth: Optional[tuple] = None) -> str:
     """
-    Convert HTML element to formatted text preserving structure
+    Convert HTML element to markdown formatted text preserving structure
 
     Converts:
+    - <h1>~<h6> → # ~ ###### markdown headings
+    - <strong>, <b> → **text** markdown bold
+    - <em>, <i> → *text* markdown italic
     - <br> → newline
     - <p> → newline separation
     - <ul><li> → bullet points
@@ -137,6 +210,24 @@ def html_to_text(element, base_url: str = "", auth: Optional[tuple] = None) -> s
                 else:
                     # No auth provided, use original URL
                     result.append(f'\n![{alt}]({img_url})\n')
+        elif elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+            # Convert headings to markdown
+            level = int(elem.name[1])  # Extract number from h1~h6
+            heading_prefix = '#' * level
+            heading_text = elem.get_text(strip=True)
+            result.append(f'\n{heading_prefix} {heading_text}\n\n')
+        elif elem.name in ['strong', 'b']:
+            # Convert bold to markdown
+            result.append('**')
+            for child in elem.children:
+                process_element(child)
+            result.append('**')
+        elif elem.name in ['em', 'i']:
+            # Convert italic to markdown
+            result.append('*')
+            for child in elem.children:
+                process_element(child)
+            result.append('*')
         elif elem.name == 'p':
             for child in elem.children:
                 process_element(child)
@@ -165,7 +256,11 @@ def html_to_text(element, base_url: str = "", auth: Optional[tuple] = None) -> s
                 for nested in li.find_all(['ul', 'ol'], recursive=False):
                     result.append('  ')
                     process_element(nested)
-        elif elem.name in ['strong', 'b', 'em', 'i', 'span', 'div']:
+        elif elem.name == 'span':
+            # For span, just process children without any formatting
+            for child in elem.children:
+                process_element(child)
+        elif elem.name == 'div':
             for child in elem.children:
                 process_element(child)
         elif elem.name == 'li':
@@ -191,7 +286,7 @@ def html_to_text(element, base_url: str = "", auth: Optional[tuple] = None) -> s
 
 class ConfluenceParser:
     """Confluence API client and HTML parser"""
-    
+
     def __init__(self):
         self.base_url = settings.confluence_base_url.rstrip('/')
         # 링크용 URL (설정되지 않았으면 base_url 사용)
@@ -201,35 +296,35 @@ class ConfluenceParser:
         self.parent_page_id = settings.confluence_parent_page_id
         # Rate limiter: 10 calls per minute
         self.rate_limiter = RateLimiter(max_calls=10, time_window=60)
-        
+
     def get_child_pages(self) -> List[Dict[str, str]]:
         """
         Get child pages under parent page
-        
+
         Returns:
             List of pages with id, title, url
         """
         url = f"{self.base_url}/rest/api/content/{self.parent_page_id}/child/page"
         params = {"limit": 500, "expand": "version"}
-        
+
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 # Apply rate limiting
                 self.rate_limiter.wait_if_needed()
-                
+
                 response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
-                
+
                 # Handle 429 Too Many Requests
                 if response.status_code == 429:
                     retry_after = int(response.headers.get('Retry-After', 60))
                     print(f"⚠️  429 Too Many Requests. Waiting {retry_after} seconds... (Attempt {attempt + 1}/{max_retries})")
                     time.sleep(retry_after)
                     continue
-                
+
                 response.raise_for_status()
                 data = response.json()
-                
+
                 pages = []
                 for page in data.get("results", []):
                     pages.append({
@@ -247,38 +342,38 @@ class ConfluenceParser:
             except Exception as e:
                 print(f"❌ Error fetching child pages: {e}")
                 return []
-        
+
         print(f"❌ Failed to fetch child pages after {max_retries} attempts")
         return []
-    
+
     def get_page_content(self, page_id: str) -> Optional[str]:
         """
         Get XHTML content of a page
-        
+
         Args:
             page_id: Confluence page ID
-            
+
         Returns:
             XHTML content string or None
         """
         url = f"{self.base_url}/rest/api/content/{page_id}"
         params = {"expand": "body.view"}
-        
+
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 # Apply rate limiting
                 self.rate_limiter.wait_if_needed()
-                
+
                 response = requests.get(url, auth=self.auth, params=params, timeout=30, verify=False)
-                
+
                 # Handle 429 Too Many Requests
                 if response.status_code == 429:
                     retry_after = int(response.headers.get('Retry-After', 60))
                     print(f"⚠️  429 Too Many Requests for page {page_id}. Waiting {retry_after} seconds... (Attempt {attempt + 1}/{max_retries})")
                     time.sleep(retry_after)
                     continue
-                
+
                 response.raise_for_status()
                 data = response.json()
                 return data.get("body", {}).get("view", {}).get("value")
@@ -290,10 +385,10 @@ class ConfluenceParser:
             except Exception as e:
                 print(f"❌ Error fetching page {page_id}: {e}")
                 return None
-        
+
         print(f"❌ Failed to fetch page {page_id} after {max_retries} attempts")
         return None
-    
+
     def parse_application(self, html_content: str, page_id: str, page_url: str) -> Dict[str, Any]:
         """
         Parse application data from HTML content
@@ -410,7 +505,7 @@ class ConfluenceParser:
                 data["pre_survey"] = pre_survey
 
             # ============================================================
-            # III. 신청 내용 파싱
+            # III. 신청 내용 파싱 (테이블, 헤딩, 볼드, 이탤릭을 마크다운으로 변환)
             # ============================================================
             # 섹션 헤더를 찾아서 내용 추출하는 헬퍼 함수
             def find_section_content(section_number: str, section_keyword: str) -> Optional[str]:
@@ -419,6 +514,7 @@ class ConfluenceParser:
                 헤더가 여러 <strong> 태그로 분리될 수 있으므로 td 전체 텍스트를 확인
                 HTML 포맷을 유지하여 줄바꿈과 리스트를 보존
                 이미지를 다운로드하여 로컬에 저장
+                테이블, 헤딩, 볼드, 이탤릭을 마크다운으로 변환
                 """
                 # 모든 td 셀을 순회하며 섹션 헤더 찾기
                 for td in soup.find_all('td', class_='highlight-#b3d4ff'):
@@ -435,8 +531,8 @@ class ConfluenceParser:
                                 if content_row:
                                     content_cell = content_row.find('td')
                                     if content_cell:
-                                        # HTML을 포맷된 텍스트로 변환 (이미지를 다운로드하여 로컬 저장)
-                                        text = html_to_text(content_cell, self.link_base_url, self.auth)
+                                        # HTML을 마크다운으로 변환 (테이블, 헤딩, 볼드, 이탤릭 포함, 이미지 다운로드)
+                                        text = html_table_to_markdown(content_cell, self.link_base_url, self.auth)
                                         if text and text != "여기 파싱":
                                             return text
                 return None
@@ -568,16 +664,16 @@ class ConfluenceParser:
             data["parse_error_log"] = "\n".join(errors)
 
         return data
-    
+
     def sync_applications(self, db: Session, batch_id: Optional[str] = None, force_update: bool = False) -> Dict[str, Any]:
         """
         Sync applications from Confluence
-        
+
         Args:
             db: Database session
             batch_id: Batch identifier
             force_update: Update existing applications
-            
+
         Returns:
             Sync result statistics
         """
@@ -588,7 +684,7 @@ class ConfluenceParser:
             "error_count": 0,
             "errors": []
         }
-        
+
         # Get child pages
         pages = self.get_child_pages()
         result["total_pages"] = len(pages)
@@ -612,16 +708,16 @@ class ConfluenceParser:
                 if existing_app and not force_update:
                     print(f"  ⏭️  기존 페이지 건너뜀")
                     continue
-                
+
                 # Get and parse content
                 html_content = self.get_page_content(page_id)
                 if not html_content:
                     result["error_count"] += 1
                     result["errors"].append(f"Failed to fetch page {page_id}")
                     continue
-                
+
                 parsed_data = self.parse_application(html_content, page_id, page_url)
-                
+
                 # Resolve department by division text
                 if parsed_data.get("division"):
                     dept = db.query(Department).filter(
@@ -629,10 +725,10 @@ class ConfluenceParser:
                     ).first()
                     if dept:
                         parsed_data["department_id"] = dept.id
-                
+
                 if batch_id:
                     parsed_data["batch_id"] = batch_id
-                
+
                 if existing_app:
                     # Update existing
                     for key, value in parsed_data.items():
@@ -645,9 +741,9 @@ class ConfluenceParser:
                     db.add(new_app)
                     result["new_count"] += 1
                     print(f"  ✅ 신규 생성 완료")
-                
+
                 db.commit()
-                
+
             except Exception as e:
                 result["error_count"] += 1
                 error_msg = f"Error processing page {page['id']}: {str(e)}"

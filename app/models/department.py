@@ -10,13 +10,15 @@ from app.database import Base
 class Department(Base):
     """Department model"""
     __tablename__ = "departments"
-    
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False, index=True)
+    description = Column(String(500))  # 사업부 설명
     total_employees = Column(Integer, default=0)  # 통계용 전체 인원수
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
-    users = relationship("User", back_populates="department")
+    users = relationship("User", back_populates="department", foreign_keys="User.department_id")  # Legacy single department
+    assigned_users = relationship("User", secondary="user_departments", back_populates="departments")  # Multiple users
     applications = relationship("Application", back_populates="department")

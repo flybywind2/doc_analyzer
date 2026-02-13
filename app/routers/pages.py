@@ -4,6 +4,8 @@ Web pages router
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.services.auth import get_current_user
 from app.models.user import User
 
@@ -45,6 +47,26 @@ async def application_detail_page(
     return templates.TemplateResponse(
         "applications/detail.html",
         {"request": request, "user": current_user, "application_id": application_id}
+    )
+
+
+@router.get("/compare", response_class=HTMLResponse)
+async def compare_applications_page(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Applications comparison page"""
+    from sqlalchemy.orm import joinedload
+
+    # Load user with departments relationship
+    user_with_depts = db.query(User).options(
+        joinedload(User.departments)
+    ).filter(User.id == current_user.id).first()
+
+    return templates.TemplateResponse(
+        "compare.html",
+        {"request": request, "user": user_with_depts or current_user}
     )
 
 
@@ -125,5 +147,39 @@ async def admin_sync_page(
         )
     return templates.TemplateResponse(
         "admin/sync.html",
+        {"request": request, "user": current_user}
+    )
+
+
+@router.get("/admin/criteria", response_class=HTMLResponse)
+async def admin_criteria_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin evaluation criteria management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/criteria.html",
+        {"request": request, "user": current_user}
+    )
+
+
+@router.get("/admin/scheduled-jobs", response_class=HTMLResponse)
+async def admin_scheduled_jobs_page(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin scheduled jobs management page"""
+    if current_user.role != "admin":
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "user": current_user, "message": "관리자 권한이 필요합니다"}
+        )
+    return templates.TemplateResponse(
+        "admin/scheduled_jobs.html",
         {"request": request, "user": current_user}
     )

@@ -4,8 +4,10 @@ Initialize database with default data
 import bcrypt
 from sqlalchemy.orm import Session
 from app.models.user import User
+from app.models.department import Department
 from app.models.category import AICategory
 from app.models.evaluation import EvaluationCriteria
+from app.models.scheduled_job import ScheduledJob
 
 
 def hash_password(password: str) -> str:
@@ -29,7 +31,33 @@ def init_default_data(db: Session):
         )
         db.add(admin_user)
         print("✅ Default admin user created (username: admin, password: admin123!)")
-    
+
+    # Initialize Departments (example data)
+    departments_data = [
+        {
+            "name": "DS 사업부",
+            "description": "Device Solutions 사업부",
+            "total_employees": 500
+        },
+        {
+            "name": "IT 부문",
+            "description": "Information Technology 부문",
+            "total_employees": 300
+        },
+        {
+            "name": "경영지원실",
+            "description": "경영지원 및 인사/재무",
+            "total_employees": 150
+        },
+    ]
+
+    existing_departments = db.query(Department).count()
+    if existing_departments == 0:
+        for dept_data in departments_data:
+            department = Department(**dept_data)
+            db.add(department)
+        print(f"✅ {len(departments_data)} departments created")
+
     # Initialize AI Categories
     categories_data = [
         {"name": "LLM", "description": "텍스트 생성, 요약, 번역, 챗봇", 
@@ -119,6 +147,31 @@ def init_default_data(db: Session):
             criteria = EvaluationCriteria(**crit_data)
             db.add(criteria)
         print(f"✅ {len(criteria_data)} evaluation criteria created")
-    
+
+    # Initialize Scheduled Jobs
+    scheduled_jobs_data = [
+        {
+            "job_type": "confluence_sync",
+            "name": "Confluence 전체 동기화",
+            "description": "Confluence에서 모든 지원서를 가져와 데이터베이스에 저장합니다. 신규 지원서는 추가되고 기존 지원서는 업데이트됩니다.",
+            "cron_expression": "0 2 * * *",  # Daily at 2 AM
+            "is_active": False
+        },
+        {
+            "job_type": "ai_evaluation",
+            "name": "AI 평가 자동 실행",
+            "description": "아직 AI 평가가 완료되지 않은 지원서들을 자동으로 평가합니다. 이미 평가된 지원서는 재평가하지 않습니다.",
+            "cron_expression": "0 3 * * *",  # Daily at 3 AM (after sync)
+            "is_active": False
+        }
+    ]
+
+    existing_jobs = db.query(ScheduledJob).count()
+    if existing_jobs == 0:
+        for job_data in scheduled_jobs_data:
+            job = ScheduledJob(**job_data)
+            db.add(job)
+        print(f"✅ {len(scheduled_jobs_data)} scheduled jobs created (disabled by default)")
+
     db.commit()
     print("✅ Database initialization completed")

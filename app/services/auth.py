@@ -178,3 +178,58 @@ def update_last_login(db: Session, user: User):
     """Update user's last login timestamp"""
     user.last_login_at = datetime.utcnow()
     db.commit()
+
+
+def has_department_access(user: User, department_id: int) -> bool:
+    """
+    Check if user has access to a specific department
+
+    Args:
+        user: User object
+        department_id: Department ID to check
+
+    Returns:
+        True if user has access, False otherwise
+    """
+    # Admin has access to all departments
+    if user.role == "admin":
+        return True
+
+    # Check if user has no departments assigned
+    if not user.departments and not user.department_id:
+        return False
+
+    # Check multiple departments (new system)
+    if user.departments:
+        department_ids = [dept.id for dept in user.departments]
+        if department_id in department_ids:
+            return True
+
+    # Check single department (legacy system)
+    if user.department_id and user.department_id == department_id:
+        return True
+
+    return False
+
+
+def get_user_department_ids(user: User) -> list:
+    """
+    Get all department IDs the user has access to
+
+    Args:
+        user: User object
+
+    Returns:
+        List of department IDs
+    """
+    department_ids = []
+
+    # Get from multiple departments (new system)
+    if user.departments:
+        department_ids.extend([dept.id for dept in user.departments])
+
+    # Get from single department (legacy system)
+    if user.department_id and user.department_id not in department_ids:
+        department_ids.append(user.department_id)
+
+    return department_ids

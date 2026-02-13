@@ -18,6 +18,8 @@ function setAuthToken(token) {
 // Remove auth token
 function removeAuthToken() {
     localStorage.removeItem('access_token');
+    // Also remove from cookie if exists
+    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 }
 
 // API fetch with auth
@@ -41,11 +43,19 @@ async function apiFetch(url, options = {}) {
         headers
     });
     
-    // Handle 401 Unauthorized
+    // Handle 401 Unauthorized - Session expired
     if (response.status === 401) {
         removeAuthToken();
+        // Show session expired message
+        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
         window.location.href = '/';
         return;
+    }
+
+    // Handle 403 Forbidden - Permission denied
+    if (response.status === 403) {
+        alert('접근 권한이 없습니다.');
+        return response;
     }
     
     return response;

@@ -78,6 +78,7 @@ class AIEvaluationResponse(BaseModel):
 class DepartmentBase(BaseModel):
     """Base department schema"""
     name: str = Field(..., max_length=100)
+    description: Optional[str] = None
     total_employees: int = Field(default=0, ge=0)
 
 
@@ -89,6 +90,7 @@ class DepartmentCreate(DepartmentBase):
 class DepartmentUpdate(BaseModel):
     """Schema for updating department"""
     name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
     total_employees: Optional[int] = Field(None, ge=0)
 
 
@@ -106,7 +108,7 @@ class AICategoryBase(BaseModel):
     """Base AI category schema"""
     name: str = Field(..., max_length=50)
     description: Optional[str] = None
-    keywords: Optional[str] = None  # JSON array as string
+    keywords: Optional[List[str]] = None  # List of keywords
     display_order: int = Field(default=0, ge=0)
     is_active: bool = True
 
@@ -120,7 +122,7 @@ class AICategoryUpdate(BaseModel):
     """Schema for updating AI category"""
     name: Optional[str] = Field(None, max_length=50)
     description: Optional[str] = None
-    keywords: Optional[str] = None
+    keywords: Optional[List[str]] = None
     display_order: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 

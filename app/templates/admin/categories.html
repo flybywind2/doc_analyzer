@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}카테고리 관리 - AI 과제 지원서 평가 시스템{% endblock %}
+{% block title %}카테고리 관리{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-2xl font-bold text-gray-900">AI 카테고리 관리</h2>
-            <p class="text-gray-500 mt-1">AI 기술 카테고리별로 과제를 분류하고 비교 분석합니다.</p>
+            <p class="text-gray-500 mt-1">AI 기술 카테고리를 추가하고 관리합니다.</p>
         </div>
         <button onclick="showCreateModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
             <i class="fa-solid fa-plus mr-2"></i> 새 카테고리 추가
@@ -19,89 +19,18 @@
             <table class="min-w-full divide-y divide-gray-200" id="categories-table">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI 카테고리</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원서 수</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리명</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">설명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">키워드</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순서</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
                     </tr>
                 </thead>
                 <tbody id="categories-tbody" class="bg-white divide-y divide-gray-200">
-                    <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>
                 </tbody>
             </table>
-        </div>
-    </div>
-</div>
-
-<!-- 지원서 비교 모달 -->
-<div id="compare-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeCompareModal()"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl w-full">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div class="flex justify-between items-center mb-4 border-b pb-4">
-                    <h2 class="text-xl font-bold text-gray-900" id="compare-modal-title">지원서 비교</h2>
-                    <button onclick="closeCompareModal()" class="text-gray-400 hover:text-gray-500 focus:outline-none">
-                        <i class="fa-solid fa-times text-xl"></i>
-                    </button>
-                </div>
-                
-                <div class="modal-body">
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md compare-instructions">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fa-solid fa-circle-info text-blue-500"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-blue-700">최대 5개의 지원서를 선택하여 비교할 수 있습니다.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 지원서 선택 영역 -->
-                    <div class="selection-area space-y-4">
-                        <h3 class="text-lg font-medium text-gray-900 flex items-center">
-                            지원서 선택 <span id="selection-count" class="ml-2 text-blue-600 font-bold text-base">(0/5)</span>
-                        </h3>
-                        <div id="applications-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-1">
-                            <div class="col-span-full text-center py-10 text-gray-500">
-                                <i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 비교 버튼 -->
-                    <div class="compare-actions mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                        <button onclick="closeCompareModal()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            취소
-                        </button>
-                        <button id="compare-btn" onclick="showComparison()" disabled class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                            선택한 지원서 비교하기
-                        </button>
-                    </div>
-                    
-                    <!-- 비교 결과 영역 -->
-                    <div id="comparison-result" class="hidden">
-                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
-                            <h3 class="text-lg font-medium text-gray-900">비교 결과</h3>
-                            <button onclick="resetComparison()" class="px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
-                                <i class="fa-solid fa-rotate-left mr-1"></i> 다시 선택
-                            </button>
-                        </div>
-                        <div id="comparison-content" class="overflow-x-auto pb-4"></div>
-                        
-                        <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100 comparison-actions-bottom">
-                            <button onclick="resetComparison()" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                                <i class="fa-solid fa-rotate-left mr-2"></i> 다시 선택
-                            </button>
-                            <button onclick="printComparison()" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                <i class="fa-solid fa-print mr-2"></i> 인쇄
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -131,6 +60,15 @@
                                     <textarea id="category-description" rows="3" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"></textarea>
                                 </div>
                                 <div class="mb-4">
+                                    <label for="category-keywords" class="block text-sm font-medium text-gray-700 mb-1">키워드 (쉼표로 구분)</label>
+                                    <input type="text" id="category-keywords" placeholder="예: 머신러닝, ML, machine learning" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                                    <p class="text-xs text-gray-500 mt-1">자동 분류에 사용되는 키워드를 쉼표로 구분하여 입력하세요.</p>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="category-order" class="block text-sm font-medium text-gray-700 mb-1">표시 순서</label>
+                                    <input type="number" id="category-order" min="0" value="0" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2">
+                                </div>
+                                <div class="mb-4">
                                     <div class="flex items-center">
                                         <input type="checkbox" id="category-active" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
                                         <label for="category-active" class="ml-2 block text-sm text-gray-900">
@@ -157,286 +95,184 @@
 
 <script>
 let categories = [];
-let aiCategories = ['예측', '분류', '챗봇', '에이전트', '최적화', '강화학습'];
-let categoryApplications = {};
-let selectedApplications = [];
-let currentCategory = '';
+let isEditMode = false;
+let editingCategoryId = null;
 
 async function loadCategories() {
     const tbody = document.getElementById('categories-tbody');
-    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>';
-    
+    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-blue-500 mr-2"></i> 로딩 중...</td></tr>';
+
     try {
-        // AI 카테고리별 지원서 수 로드
-        const response = await apiFetch('/api/applications');
+        const response = await apiFetch('/api/categories');
         if (response.ok) {
-            const applications = await response.json();
-            
-            // 카테고리별 그룹화
-            categoryApplications = {};
-            aiCategories.forEach(cat => {
-                categoryApplications[cat] = applications.filter(app => 
-                    app.ai_category_primary === cat
-                );
-            });
-            
+            categories = await response.json();
             renderCategories();
         } else {
-            showError('데이터를 불러오는데 실패했습니다.');
+            showError('카테고리 목록을 불러오는데 실패했습니다.');
         }
     } catch (error) {
-        console.error('Error loading data:', error);
-        showError('데이터를 불러오는데 실패했습니다.');
+        console.error('Error loading categories:', error);
+        showError('카테고리 목록을 불러오는데 실패했습니다.');
     }
 }
 
 function renderCategories() {
     const tbody = document.getElementById('categories-tbody');
-    tbody.innerHTML = '';
 
-    aiCategories.forEach(category => {
-        const apps = categoryApplications[category] || [];
-        const row = `
-            <tr class="hover:bg-gray-50 transition-colors">
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        ${category}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${apps.length}개</td>
-                <td class="px-6 py-4 text-sm text-gray-500">${getCategoryDescription(category)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    <button class="inline-flex items-center text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                            onclick="openCompareModal('${category}')" 
-                            ${apps.length < 2 ? 'disabled' : ''}>
-                        <i class="fa-solid fa-scale-balanced mr-1.5"></i> 지원서 비교
-                    </button>
-                </td>
-            </tr>
-        `;
-        tbody.innerHTML += row;
-    });
-}
-
-function getCategoryDescription(category) {
-    const descriptions = {
-        '예측': '미래 값 예측, 수요 예측, 트렌드 분석',
-        '분류': '이미지/텍스트 분류, 불량 검출, 카테고리 분류',
-        '챗봇': '대화형 인터페이스, 자동 응답, Q&A',
-        '에이전트': '자율 의사결정, 복잡한 작업 자동화',
-        '최적화': '자원 최적화, 스케줄링, 경로 최적화',
-        '강화학습': '학습 기반 의사결정, 시뮬레이션 최적화'
-    };
-    return descriptions[category] || '';
-}
-
-function openCompareModal(category) {
-    currentCategory = category;
-    selectedApplications = [];
-    document.getElementById('compare-modal-title').textContent = `${category} 카테고리 지원서 비교`;
-    document.getElementById('compare-modal').classList.remove('hidden');
-    document.getElementById('comparison-result').classList.add('hidden');
-    document.querySelector('.selection-area').classList.remove('hidden');
-    document.querySelector('.compare-actions').classList.remove('hidden');
-    document.querySelector('.compare-instructions').classList.remove('hidden');
-    
-    renderApplicationsList();
-}
-
-function closeCompareModal() {
-    document.getElementById('compare-modal').classList.add('hidden');
-    selectedApplications = [];
-    currentCategory = '';
-}
-
-function renderApplicationsList() {
-    const apps = categoryApplications[currentCategory] || [];
-    const container = document.getElementById('applications-list');
-    
-    if (apps.length === 0) {
-        container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500">이 카테고리에 지원서가 없습니다.</div>';
+    if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">등록된 카테고리가 없습니다.</td></tr>';
         return;
     }
-    
-    container.innerHTML = apps.map(app => `
-        <div class="relative rounded-lg border-2 p-4 cursor-pointer transition-all hover:shadow-md ${selectedApplications.includes(app.id) ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 bg-white hover:border-blue-300'}" 
-             onclick="toggleSelection(${app.id})">
-            <div class="flex justify-between items-start mb-2">
-                <div class="flex items-center h-5">
-                    <input type="checkbox" ${selectedApplications.includes(app.id) ? 'checked' : ''} 
-                           class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                           onclick="event.stopPropagation(); toggleSelection(${app.id})">
-                </div>
-                <span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span>
-            </div>
-            <h4 class="text-sm font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">${app.subject}</h4>
-            <div class="flex flex-col gap-1 text-xs text-gray-500 mb-2">
-                <span class="flex items-center"><i class="fa-solid fa-building w-4 text-center mr-1"></i> ${app.division || 'N/A'}</span>
-                <span class="flex items-center"><i class="fa-solid fa-users w-4 text-center mr-1"></i> ${app.participant_count || 0}명</span>
-            </div>
-            <div class="text-xs text-gray-500 pt-2 border-t border-gray-100 line-clamp-2">
-                ${app.pain_point ? app.pain_point : 'Pain Point 없음'}
-            </div>
-        </div>
+
+    tbody.innerHTML = categories.map(cat => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${cat.name}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700">${cat.description || '-'}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">
+                ${cat.keywords && Array.isArray(cat.keywords) && cat.keywords.length > 0
+                    ? cat.keywords.map(k => `<span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded mr-1 mb-1">${k}</span>`).join('')
+                    : '-'
+                }
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">${cat.display_order}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+                ${cat.is_active
+                    ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">활성</span>'
+                    : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">비활성</span>'
+                }
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <button onclick="editCategory(${cat.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                    <i class="fa-solid fa-edit mr-1"></i>편집
+                </button>
+                <button onclick="deleteCategory(${cat.id})" class="text-red-600 hover:text-red-900">
+                    <i class="fa-solid fa-trash mr-1"></i>삭제
+                </button>
+            </td>
+        </tr>
     `).join('');
-    
-    updateSelectionCount();
-}
-
-function getGradeBadgeClass(grade) {
-    const baseClasses = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
-    if (grade === 'S' || grade >= 90) return `${baseClasses} bg-purple-100 text-purple-800`;
-    if (grade === 'A' || grade >= 80) return `${baseClasses} bg-green-100 text-green-800`;
-    if (grade === 'B' || grade >= 70) return `${baseClasses} bg-blue-100 text-blue-800`;
-    if (grade === 'C' || grade >= 60) return `${baseClasses} bg-yellow-100 text-yellow-800`;
-    return `${baseClasses} bg-gray-100 text-gray-800`;
-}
-
-function toggleSelection(appId) {
-    const index = selectedApplications.indexOf(appId);
-    
-    if (index > -1) {
-        selectedApplications.splice(index, 1);
-    } else {
-        if (selectedApplications.length >= 5) {
-            alert('최대 5개까지만 선택할 수 있습니다.');
-            return;
-        }
-        selectedApplications.push(appId);
-    }
-    
-    renderApplicationsList();
-}
-
-function updateSelectionCount() {
-    document.getElementById('selection-count').textContent = `(${selectedApplications.length}/5)`;
-    document.getElementById('compare-btn').disabled = selectedApplications.length < 2;
-}
-
-async function showComparison() {
-    if (selectedApplications.length < 2) {
-        alert('최소 2개의 지원서를 선택해주세요.');
-        return;
-    }
-    
-    // 선택된 지원서 데이터 가져오기
-    const apps = categoryApplications[currentCategory].filter(app => 
-        selectedApplications.includes(app.id)
-    );
-    
-    // 비교 결과 표시
-    document.querySelector('.selection-area').classList.add('hidden');
-    document.querySelector('.compare-actions').classList.add('hidden');
-    document.querySelector('.compare-instructions').classList.add('hidden');
-    document.getElementById('comparison-result').classList.remove('hidden');
-    
-    renderComparison(apps);
-}
-
-function renderComparison(apps) {
-    const container = document.getElementById('comparison-content');
-    
-    let html = `
-        <table class="min-w-full border-collapse text-sm">
-            <thead>
-                <tr>
-                    <th class="p-4 text-left bg-gray-50 border border-gray-200 sticky left-0 z-10 font-bold text-gray-700 min-w-[150px]">비교 항목</th>
-                    ${apps.map((app, idx) => `
-                        <th class="p-4 text-left bg-gray-50 border border-gray-200 font-bold text-gray-700 min-w-[200px]">지원서 ${idx + 1}</th>
-                    `).join('')}
-                </tr>
-            </thead>
-            <tbody>
-                <!-- 기본 정보 -->
-                <tr>
-                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">📋 기본 정보</td>
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">과제명</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white font-bold text-gray-900">${app.subject}</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">사업부</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.division || '-'}</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">부서</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.department_name || '-'}</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">참여 인원</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700">${app.participant_count || 0}명</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 등급</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="${getGradeBadgeClass(app.ai_grade || 'B')}">${app.ai_grade || 'N/A'}</span></td>`).join('')}
-                </tr>
-                
-                <!-- 문제 및 해결방안 -->
-                <tr>
-                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🎯 문제 및 해결방안</td>
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">Pain Point</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.pain_point || '-'}</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">개선 아이디어</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.improvement_idea || '-'}</td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">기대 효과</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${app.expected_effect || '-'}</td>`).join('')}
-                </tr>
-                
-                <!-- AI 요약 -->
-                <tr>
-                    <td class="p-3 bg-blue-600 text-white font-bold border border-blue-700 sticky left-0 z-10" colspan="${apps.length + 1}">🤖 AI 요약</td>
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10">AI 기술 분류</td>
-                    ${apps.map(app => `<td class="p-3 border border-gray-200 bg-white"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${app.ai_category_primary || '분류'}</span></td>`).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">경영효과</td>
-                    ${apps.map(app => {
-                        const detail = app.ai_evaluation_detail || {};
-                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.business_impact || '-'}</td>`;
-                    }).join('')}
-                </tr>
-                <tr>
-                    <td class="p-3 bg-gray-50 font-semibold border border-gray-200 sticky left-0 z-10 align-top">구현 가능성</td>
-                    ${apps.map(app => {
-                        const detail = app.ai_evaluation_detail || {};
-                        return `<td class="p-3 border border-gray-200 bg-white text-gray-700 align-top min-w-[250px] leading-relaxed">${detail.technical_feasibility || '-'}</td>`;
-                    }).join('')}
-                </tr>
-            </tbody>
-        </table>
-    `;
-    
-    container.innerHTML = html;
-}
-
-function resetComparison() {
-    selectedApplications = [];
-    document.querySelector('.selection-area').classList.remove('hidden');
-    document.querySelector('.compare-actions').classList.remove('hidden');
-    document.querySelector('.compare-instructions').classList.remove('hidden');
-    document.getElementById('comparison-result').classList.add('hidden');
-    renderApplicationsList();
-}
-
-function printComparison() {
-    window.print();
 }
 
 function showCreateModal() {
+    isEditMode = false;
+    editingCategoryId = null;
+    document.getElementById('modal-title').textContent = '새 카테고리 추가';
+    document.getElementById('category-form').reset();
+    document.getElementById('category-id').value = '';
+    document.getElementById('category-active').checked = true;
+    document.getElementById('category-order').value = categories.length;
+    document.getElementById('category-modal').classList.remove('hidden');
+}
+
+function editCategory(categoryId) {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    isEditMode = true;
+    editingCategoryId = categoryId;
+    document.getElementById('modal-title').textContent = '카테고리 편집';
+    document.getElementById('category-id').value = category.id;
+    document.getElementById('category-name').value = category.name;
+    document.getElementById('category-description').value = category.description || '';
+    document.getElementById('category-keywords').value = category.keywords && Array.isArray(category.keywords) ? category.keywords.join(', ') : '';
+    document.getElementById('category-order').value = category.display_order;
+    document.getElementById('category-active').checked = category.is_active;
     document.getElementById('category-modal').classList.remove('hidden');
 }
 
 function closeModal() {
     document.getElementById('category-modal').classList.add('hidden');
+    document.getElementById('category-form').reset();
+    isEditMode = false;
+    editingCategoryId = null;
+}
+
+async function handleSubmit(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('category-name').value.trim();
+    const description = document.getElementById('category-description').value.trim();
+    const keywordsText = document.getElementById('category-keywords').value.trim();
+    const keywords = keywordsText ? keywordsText.split(',').map(k => k.trim()).filter(k => k) : [];
+    const displayOrder = parseInt(document.getElementById('category-order').value);
+    const isActive = document.getElementById('category-active').checked;
+
+    const categoryData = {
+        name,
+        description,
+        keywords,
+        display_order: displayOrder,
+        is_active: isActive
+    };
+
+    try {
+        let response;
+        if (isEditMode && editingCategoryId) {
+            // Update existing category
+            response = await apiFetch(`/api/categories/${editingCategoryId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(categoryData)
+            });
+        } else {
+            // Create new category
+            response = await apiFetch('/api/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(categoryData)
+            });
+        }
+
+        if (response.ok) {
+            showSuccess(isEditMode ? '카테고리가 수정되었습니다.' : '카테고리가 추가되었습니다.');
+            closeModal();
+            await loadCategories();
+        } else {
+            const error = await response.json();
+            showError(error.detail || '카테고리 저장에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error saving category:', error);
+        showError('카테고리 저장 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteCategory(categoryId) {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    if (!confirm(`'${category.name}' 카테고리를 삭제하시겠습니까?\n\n⚠️ 이 카테고리를 사용하는 지원서가 있을 수 있습니다.`)) {
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`/api/categories/${categoryId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok || response.status === 204) {
+            showSuccess('카테고리가 삭제되었습니다.');
+            await loadCategories();
+        } else {
+            const error = await response.json();
+            showError(error.detail || '카테고리 삭제에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        showError('카테고리 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+function showSuccess(message) {
+    alert('✅ ' + message);
+}
+
+function showError(message) {
+    alert('❌ ' + message);
 }
 
 // Load categories on page load
@@ -444,58 +280,4 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCategories();
 });
 </script>
-
-<style>
-/* 인쇄 스타일 */
-@media print {
-    /* base.html의 nav, sidebar 등을 숨겨야 함. Tailwind에서는 hidden 클래스 사용 */
-    nav, .page-header, .comparison-actions-bottom, .compare-actions, footer {
-        display: none !important;
-    }
-    
-    /* 모달 배경과 위치 조정 */
-    #compare-modal {
-        position: static !important;
-        background: white !important;
-        display: block !important;
-        overflow: visible !important;
-    }
-    
-    /* 모달 내부 컨텐츠 확장 */
-    .inline-block {
-        display: block !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        box-shadow: none !important;
-        margin: 0 !important;
-        transform: none !important;
-    }
-    
-    /* 스크롤 제거 */
-    .overflow-x-auto, .overflow-y-auto {
-        overflow: visible !important;
-    }
-    
-    /* 폰트 크기 조정 */
-    body {
-        font-size: 10pt;
-    }
-    
-    /* 불필요한 요소 숨김 */
-    .close-btn, .modal-header button {
-        display: none !important;
-    }
-    
-    .bg-gray-50 {
-        background-color: #f9fafb !important;
-        -webkit-print-color-adjust: exact;
-    }
-    
-    .bg-blue-600 {
-        background-color: #2563eb !important;
-        color: white !important;
-        -webkit-print-color-adjust: exact;
-    }
-}
-</style>
 {% endblock %}

@@ -129,6 +129,14 @@
 </div>
 
 <script>
+const user = {
+    id: {{ user.id }},
+    username: "{{ user.username }}",
+    name: "{{ user.name }}",
+    role: "{{ user.role }}",
+    department_id: {{ user.department_id if user.department_id else 'null' }}
+};
+
 let currentPage = 0;
 const pageSize = 20;
 let totalItems = 0; // Added for pagination info
@@ -233,7 +241,7 @@ function renderApplications(applications) {
                     </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                    ${app.ai_grade ? `<span class="${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : '<span class="text-gray-400">-</span>'}
+                    ${app.ai_grade && (user.role === 'admin' || app.user_has_evaluated) ? `<span class="${getGradeBadgeClass(app.ai_grade)}">${app.ai_grade}</span>` : app.ai_grade && user.role === 'reviewer' && !app.user_has_evaluated ? '<span class="text-gray-400 text-xs" title="본인 평가 후 확인 가능"><i class="fa-solid fa-lock"></i></span>' : '<span class="text-gray-400">-</span>'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
                     ${app.user_grade ? `<span class="${getGradeBadgeClass(app.user_grade)}">${app.user_grade}</span>` : '<span class="text-gray-400">-</span>'}

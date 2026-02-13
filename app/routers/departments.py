@@ -62,6 +62,7 @@ async def create_department(
     
     new_dept = Department(
         name=dept_data.name,
+        description=dept_data.description,
         total_employees=dept_data.total_employees
     )
     

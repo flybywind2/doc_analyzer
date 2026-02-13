@@ -2,7 +2,7 @@
 User schemas
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -18,6 +18,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating user"""
     password: Optional[str] = Field(None, min_length=8)
+    department_ids: Optional[List[int]] = Field(None, description="List of department IDs (supports multiple departments)")
 
 
 class UserUpdate(BaseModel):
@@ -25,6 +26,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     role: Optional[str] = Field(None, pattern="^(admin|reviewer)$")
     department_id: Optional[int] = None
+    department_ids: Optional[List[int]] = Field(None, description="List of department IDs (supports multiple departments)")
     is_active: Optional[bool] = None
 
 
@@ -42,8 +44,10 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: Optional[datetime]
     last_login_at: Optional[datetime]
-    department_name: Optional[str] = None
-    
+    department_name: Optional[str] = None  # Legacy single department name
+    department_ids: Optional[List[int]] = None  # Multiple department IDs
+    department_names: Optional[List[str]] = None  # Multiple department names
+
     class Config:
         from_attributes = True
 
